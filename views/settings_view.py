@@ -1,10 +1,10 @@
-from PyQt5.QtWidgets import QMainWindow, QPushButton, QVBoxLayout, QWidget, QLabel
-from PyQt5.QtCore import Qt, pyqtSignal, QSize
-from PyQt5.QtGui import QFont, QPixmap
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QCheckBox
+from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtGui import QPixmap
 
-class WelcomeWindow(QMainWindow):
+class SettingsWindow(QWidget):
     escapePressed = pyqtSignal()
-    background_path = 'resources/images/welcome_background.png'
+    background_path = 'resources/images/settings_background.png'
 
     def __init__(self):
         super().__init__()
@@ -15,22 +15,18 @@ class WelcomeWindow(QMainWindow):
     def set_controller(self, controller):
         self.controller = controller
 
-    def init_ui(self):
-        self.setWindowTitle('4 Queens')
-        self.SetBackgroundImage()
+    def show_full_screen(self):
         self.showFullScreen()
+
+    def init_ui(self):
+        self.SetBackgroundImage()
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Escape:
             self.escapePressed.emit()
-        else:
-            self.controller.play()
-
-    def mousePressEvent(self, event):
-        self.controller.play()
 
     def resizeEvent(self, event):
-        super(WelcomeWindow, self).resizeEvent(event)
+        super(SettingsWindow, self).resizeEvent(event)
         if self.background_label:
             self.background_label.setFixedSize(self.size())
             self.background_label.setPixmap(QPixmap(self.background_path).scaled(self.size(), Qt.IgnoreAspectRatio, Qt.SmoothTransformation))

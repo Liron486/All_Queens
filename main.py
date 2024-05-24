@@ -1,15 +1,10 @@
 import sys
-from PyQt5.QtWidgets import QApplication
-from controllers.welcome_controller import WelcomeController
-from views.welcome_view import WelcomeWindow
+from game_manager import GameManager
 
 def main():
-    app = QApplication(sys.argv)
-    view = WelcomeWindow()
-    controller = WelcomeController(view)
-    view.set_controller(controller)
-    controller.show_welcome()
-    sys.exit(app.exec_())
+    all_queens = GameManager()
+    all_queens.start_game()    
+    sys.exit()
 
 if __name__ == '__main__':
     main()

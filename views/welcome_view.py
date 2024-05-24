@@ -3,7 +3,8 @@ from PyQt5.QtCore import Qt, pyqtSignal, QSize
 from PyQt5.QtGui import QFont, QPixmap
 
 class WelcomeWindow(QMainWindow):
-    escapePressed = pyqtSignal()
+    exit_full_screen_signal = pyqtSignal()
+    switch_to_settings_signal = pyqtSignal()
     background_path = 'resources/images/welcome_background.png'
 
     def __init__(self):
@@ -22,12 +23,12 @@ class WelcomeWindow(QMainWindow):
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Escape:
-            self.escapePressed.emit()
+            self.exit_full_screen_signal.emit()
         else:
-            self.controller.play()
+            self.switch_to_settings_signal.emit()
 
     def mousePressEvent(self, event):
-        self.controller.play()
+        self.switch_to_settings_signal.emit()
 
     def resizeEvent(self, event):
         super(WelcomeWindow, self).resizeEvent(event)

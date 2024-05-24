@@ -6,7 +6,10 @@ class SettingsController:
     def __init__(self, model, view):
         self.model = model
         self.view = view
-        self.view.escapePressed.connect(self.exit_full_screen)
+        self.setup_connections()
+
+    def setup_connections(self):
+        self.view.exit_full_screen_signal.connect(self.exit_full_screen)
 
     @pyqtSlot(int)
     def update_difficulty_setting(self, index):

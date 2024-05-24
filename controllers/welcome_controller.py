@@ -1,23 +1,22 @@
-from views.settings_view import SettingsWindow
-from models.settings_model import SettingsModel
-from controllers.settings_controller import SettingsController
+from PyQt5.QtCore import QObject, pyqtSignal
 
-class WelcomeController:
+class WelcomeController(QObject):
+    request_settings_view_signal = pyqtSignal()
+
     def __init__(self, view):
+        super().__init__()
         self.view = view
-        self.view.escapePressed.connect(self.exit_full_screen)
-        self.settings_window = SettingsWindow()
-        self.settings_model = SettingsModel()
-        self.settings_controller = SettingsController(self.settings_model, self.settings_window)
-        self.settings_window.set_controller(self.settings_controller)
+        self.setup_connections()
+
+    def setup_connections(self):
+        self.view.exit_full_screen_signal.connect(self.exit_full_screen)
+        self.view.switch_to_settings_signal.connect(self.handle_switch_to_settings)
+
+    def handle_switch_to_settings(self):
+        self.request_settings_view_signal.emit()
 
     def show_welcome(self):
         self.view.show()
 
-    def play(self):
-        self.view.hide()  # Hide the welcome window
-        self.settings_window.show()  # Show the settings window
-        self.settings_window.show_full_screen()
-
     def exit_full_screen(self):
-        self.view.showNormal()  # Exits full screen mode
+        self.view.showNormal()

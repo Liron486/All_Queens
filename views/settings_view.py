@@ -3,7 +3,7 @@ from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QPixmap
 
 class SettingsWindow(QWidget):
-    escapePressed = pyqtSignal()
+    exit_full_screen_signal = pyqtSignal()
     background_path = 'resources/images/settings_background.png'
 
     def __init__(self):
@@ -19,11 +19,12 @@ class SettingsWindow(QWidget):
         self.showFullScreen()
 
     def init_ui(self):
+        self.setWindowTitle('4 Queens')
         self.SetBackgroundImage()
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Escape:
-            self.escapePressed.emit()
+            self.exit_full_screen_signal.emit()
 
     def resizeEvent(self, event):
         super(SettingsWindow, self).resizeEvent(event)

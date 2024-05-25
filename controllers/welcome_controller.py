@@ -1,4 +1,5 @@
 from PyQt5.QtCore import QObject, pyqtSignal
+from utils import resize_and_show_normal
 
 class WelcomeController(QObject):
     request_settings_view_signal = pyqtSignal()
@@ -7,6 +8,7 @@ class WelcomeController(QObject):
         super().__init__()
         self.view = view
         self.setup_connections()
+        self.view.showFullScreen()
 
     def setup_connections(self):
         self.view.exit_full_screen_signal.connect(self.exit_full_screen)
@@ -19,4 +21,4 @@ class WelcomeController(QObject):
         self.view.show()
 
     def exit_full_screen(self):
-        self.view.showNormal()
+        resize_and_show_normal(self.view)

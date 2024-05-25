@@ -28,7 +28,7 @@ class GameManager:
     def show_settings(self):
         self.welcome_view.hide()
         self.settings_view.show()
-        self.settings_view.show_full_screen()
+        self.settings_controller.show_full_screen()
 
     def start_game(self):
         self.welcome_controller.show_welcome()

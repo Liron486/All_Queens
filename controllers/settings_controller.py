@@ -10,6 +10,7 @@ class SettingsController:
         self.model = model
         self.view = view
         self.setup_connections()
+        self.view.number_of_players_changed.connect(self.set_number_of_real_players)
 
     def setup_connections(self):
         self.view.exit_full_screen_signal.connect(self.exit_full_screen)
@@ -17,17 +18,12 @@ class SettingsController:
     def show_full_screen(self):
         self.view.showFullScreen()
 
-    @pyqtSlot(int)
-    def update_difficulty_setting(self, index):
-        difficulty = self.view.difficulty_combo.itemText(index)
-        self.model.set_setting('difficulty', difficulty)
-
     def exit_full_screen(self):
         self.logger.debug("Exit full screen")
         resize_and_show_normal(self.view)
 
-    def load_settings(self):
-        self.view.sound_checkbox.setChecked(self.model.get_setting('sound'))
-        current_difficulty = self.model.get_setting('difficulty')
-        index = self.view.difficulty_combo.findText(current_difficulty)
-        self.view.difficulty_combo.setCurrentIndex(index)
+    def set_number_of_real_players(self, number):
+        self.logger.debug(f"Number of real players changed to {number}")
+        self.model.set_setting("num_real_players", number)
+
+

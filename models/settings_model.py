@@ -2,7 +2,8 @@ class SettingsModel:
     def __init__(self):
         self.settings = {
             'sound': True,
-            'difficulty': 'Medium'
+            'difficulty': 'Medium',
+            'num_real_players': 1
         }
 
     def get_setting(self, key):

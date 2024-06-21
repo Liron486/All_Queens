@@ -10,10 +10,11 @@ class SettingsController:
         self.model = model
         self.view = view
         self.setup_connections()
-        self.view.number_of_players_changed.connect(self.set_number_of_real_players)
 
     def setup_connections(self):
         self.view.exit_full_screen_signal.connect(self.exit_full_screen)
+        self.view.number_of_players_changed.connect(self.set_number_of_real_players)
+        self.view.difficulty_changed.connect(self.set_difficulty)
 
     def show_full_screen(self):
         self.view.showFullScreen()
@@ -24,6 +25,10 @@ class SettingsController:
 
     def set_number_of_real_players(self, number):
         self.logger.debug(f"Number of real players changed to {number}")
-        self.model.set_setting("num_real_players", number)
+        self.model.set_setting("num_real_players", int(number))
+
+    def set_difficulty(self, difficulty):
+        self.logger.debug(f"Difficulty changed to {difficulty}")
+        self.model.set_setting("difficulty", difficulty)
 
 

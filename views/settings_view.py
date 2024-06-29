@@ -27,20 +27,34 @@ class SettingsWindow(BackgroundWindow):
     def init_ui(self):
         self.setWindowTitle('4 Queens')
         self.create_main_layout()
+        self.top_spacer = QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Minimum)
+        self.main_layout.addItem(self.top_spacer)
+        self.create_title()
+        self.title_spacer = QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Minimum)
+        self.main_layout.addItem(self.title_spacer)
         self.create_buttom_list("Number of Real Players:", ["0", "1", "2"], self.change_number_of_players, 1)
+        self.line_spacer1 = QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Minimum)
+        self.main_layout.addItem(self.line_spacer1)
         self.create_player_names_ui()
-
-        spacer1 = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Minimum)
-        self.main_layout.addItem(spacer1)
-
+        self.line_spacer2 = QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Minimum)
+        self.main_layout.addItem(self.line_spacer2)
         self.create_buttom_list("Difficulty:", ["Easy", "Medium", "Hard"], self.change_difficulty)
+        self.line_spacer3 = QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Minimum)
+        self.main_layout.addItem(self.line_spacer3)
 
     def create_main_layout(self):
         central_widget = QWidget(self)
         self.setCentralWidget(central_widget)
 
         self.main_layout = QVBoxLayout(central_widget)
-        self.main_layout.setAlignment(Qt.AlignCenter)
+        self.main_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+
+    def create_title(self):
+        title_label = QLabel("Settings:")
+        title_label.setStyleSheet("color: black; font-weight: bold; text-decoration: underline;")
+        title_label.setAlignment(Qt.AlignCenter)
+        title_label.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        self.main_layout.addWidget(title_label)
 
     def create_buttom_list(self, label_text, buttons_text, callback_function, clicked_idx=0):
         buttons_layout = QHBoxLayout()
@@ -93,20 +107,36 @@ class SettingsWindow(BackgroundWindow):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        self.adjust_label_and_buttons(0)
-        self.adjust_players_names()
+        self.adjust_title()
+        self.adjust_spacers()
         self.adjust_label_and_buttons(3)
+        self.adjust_players_names()
+        self.adjust_label_and_buttons(7)
+
+    def adjust_spacers(self):
+        top_spacer_height = self.height() * 0.3
+        title_spacer_height = self.height() * 0.05
+        line_spacer_height = self.height() * 0.01
+
+        self.top_spacer.changeSize(0, int(top_spacer_height), QSizePolicy.Minimum, QSizePolicy.Fixed)
+        self.title_spacer.changeSize(0, int(title_spacer_height), QSizePolicy.Minimum, QSizePolicy.Fixed)
+        self.line_spacer1.changeSize(0, int(line_spacer_height), QSizePolicy.Minimum, QSizePolicy.Fixed)
+        self.line_spacer2.changeSize(0, int(line_spacer_height), QSizePolicy.Minimum, QSizePolicy.Fixed)
+        self.line_spacer3.changeSize(0, int(line_spacer_height), QSizePolicy.Minimum, QSizePolicy.Fixed)
+
+        self.main_layout.invalidate()  
+
+    def adjust_title(self):
+        title = self.main_layout.itemAt(1)
+        self.update_label_size(title, True)
 
     def adjust_players_names(self):
-        main_layout_item = self.main_layout.itemAt(1)
+        main_layout_item = self.main_layout.itemAt(5)
         players_names_layout = main_layout_item.layout()
 
         first_player_item = players_names_layout.itemAt(0)
         first_player_label_item = first_player_item.itemAt(0)
-        first_player_label = first_player_label_item.widget()
-        font_size = min(self.width(), self.height()) * 0.006
-        first_player_label.setFont(QFont('Arial', int(font_size)))
-        first_player_label.adjustSize()
+        self.update_label_size(first_player_label_item)
 
         first_player_textbox_item = first_player_item.itemAt(1)
         first_player_textbox = first_player_textbox_item.widget()
@@ -118,25 +148,19 @@ class SettingsWindow(BackgroundWindow):
 
         second_player_item = players_names_layout.itemAt(1)
         second_player_label_item = second_player_item.itemAt(0)
-        second_player_label = second_player_label_item.widget()
-        second_player_label.setFont(QFont('Arial', int(font_size)))
-        second_player_label.adjustSize()
+        self.update_label_size(second_player_label_item)
 
         second_player_textbox_item = second_player_item.itemAt(1)
         second_player_textbox = second_player_textbox_item.widget()
         second_player_textbox.setFixedSize(int(box_width_size), int(box_height_size))
         second_player_textbox.setFont(QFont('Arial', textbox_font_size))
 
-
     def adjust_label_and_buttons(self, main_layout_idx):
         main_layout_item = self.main_layout.itemAt(main_layout_idx)
         num_players_layout = main_layout_item.layout()
 
         label_item = num_players_layout.itemAt(0)
-        label = label_item.widget()
-        font_size = min(self.width(), self.height()) * 0.006
-        label.setFont(QFont('Arial', int(font_size)))
-        label.adjustSize()
+        self.update_label_size(label_item)
 
         button_width_size = self.width() * 0.0405
         button_height_size = self.height() * 0.027
@@ -152,7 +176,7 @@ class SettingsWindow(BackgroundWindow):
 
     def change_number_of_players(self):
         sender = self.sender()
-        main_layout_item = self.main_layout.itemAt(0)
+        main_layout_item = self.main_layout.itemAt(3)
         num_players_layout = main_layout_item.layout()
         button_layout_item = num_players_layout.itemAt(1)
         button_layout = button_layout_item.layout()
@@ -162,13 +186,23 @@ class SettingsWindow(BackgroundWindow):
 
     def change_difficulty(self):
         sender = self.sender()
-        main_layout_item = self.main_layout.itemAt(3)
+        main_layout_item = self.main_layout.itemAt(7)
         num_players_layout = main_layout_item.layout()
         button_layout_item = num_players_layout.itemAt(1)
         button_layout = button_layout_item.layout()
 
         update_buttons(button_layout, sender)
         self.difficulty_changed.emit(sender.text())
+
+    def update_label_size(self, label_item, is_title=False):
+        label = label_item.widget()
+        font_size = min(self.width(), self.height()) * 0.006
+
+        if is_title:
+            font_size *= 1.5
+
+        label.setFont(QFont('Arial', int(font_size)))
+        label.adjustSize()
 
     def keyPressEvent(self, event):
         self.logger.debug(f"Key pressed - {event.key()}")

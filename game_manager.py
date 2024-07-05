@@ -26,6 +26,11 @@ class GameManager:
 
     def setup_connections(self):
         self.welcome_controller.request_settings_view_signal.connect(self.show_settings)
+        self.settings_controller.start_game_signal.connect(self.start_game)
+
+    def start_game(self):
+        self.logger.debug("Starting the Game!")
+        # self.settings_view.hide()
 
     def show_settings(self):
         self.logger.debug("Switching to settings window")
@@ -33,7 +38,7 @@ class GameManager:
         self.settings_view.show()
         self.settings_controller.show_full_screen()
 
-    def start_game(self):
+    def load_game(self):
         self.logger.debug("Game Starts!")
         self.welcome_controller.show_welcome()
         self.app.exec_()

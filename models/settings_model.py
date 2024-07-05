@@ -3,7 +3,11 @@ class SettingsModel:
         self.settings = {
             'sound': True,
             'difficulty': 'Medium',
-            'num_real_players': 1
+            'num_real_players': 1,
+            'names' : [
+                "player1",
+                "player2"
+            ]
         }
 
     def get_setting(self, key):

@@ -19,6 +19,7 @@ class SettingsController(QObject):
         self.view.number_of_players_changed.connect(self.set_number_of_real_players)
         self.view.difficulty_changed.connect(self.set_difficulty)
         self.view.name_changed.connect(self.set_name)
+        self.view.starting_player_changed.connect(self.set_is_starting)
         self.view.play_clicked.connect(self.start_game)
 
     def show_full_screen(self):
@@ -35,6 +36,11 @@ class SettingsController(QObject):
     def set_difficulty(self, difficulty):
         self.logger.debug(f"Difficulty changed to {difficulty}")
         self.model.set_setting("difficulty", difficulty)
+
+    def set_is_starting(self, start):
+        is_starting = start == "Yes"
+        self.logger.debug(f"Player change the want to start option to {is_starting}")
+        self.model.set_setting("is_starting", is_starting)
 
     def set_name(self, new_name, idx):
         position = "First" if idx == 0 else "Second"

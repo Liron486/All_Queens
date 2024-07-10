@@ -4,6 +4,7 @@ class SettingsModel:
             'sound': True,
             'difficulty': 'Medium',
             'num_real_players': 1,
+            'is_starting': True,
             'names' : [
                 "player1",
                 "player2"

@@ -23,7 +23,11 @@ class SettingsController(QObject):
         self.view.play_clicked.connect(self.start_game)
 
     def show_full_screen(self):
+        self.view.show()
         self.view.showFullScreen()
+
+    def hide_screen(self):
+        self.view.hide()
 
     def exit_full_screen(self):
         self.logger.debug("Exit full screen")

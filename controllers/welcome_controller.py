@@ -11,7 +11,6 @@ class WelcomeController(QObject):
         self.logger = get_logger(self.__class__.__name__)
         self.view = view
         self.setup_connections()
-        self.view.showFullScreen()
 
     def setup_connections(self):
         self.view.exit_full_screen_signal.connect(self.exit_full_screen)
@@ -20,8 +19,12 @@ class WelcomeController(QObject):
     def handle_switch_to_settings(self):
         self.request_settings_view_signal.emit()
 
-    def show_welcome(self):
+    def hide_screen(self):
+        self.view.hide()
+        
+    def show_full_screen(self):
         self.view.show()
+        self.view.showFullScreen()
 
     def exit_full_screen(self):
         self.logger.debug("Exit full screen")

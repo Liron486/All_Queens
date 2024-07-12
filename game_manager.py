@@ -34,12 +34,11 @@ class GameManager:
 
     def show_settings(self):
         self.logger.debug("Switching to settings window")
-        self.welcome_view.hide()
-        self.settings_view.show()
+        self.welcome_controller.hide_screen()
         self.settings_controller.show_full_screen()
 
     def load_game(self):
         self.logger.debug("Game Starts!")
-        self.welcome_controller.show_welcome()
+        self.welcome_controller.show_full_screen()
         self.app.exec_()
 

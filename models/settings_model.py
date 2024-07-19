@@ -8,7 +8,8 @@ class SettingsModel:
             'names' : [
                 "player1",
                 "player2"
-            ]
+            ],
+            'is_edit_mode': False
         }
 
     def get_setting(self, key):

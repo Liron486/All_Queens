@@ -1,9 +1,12 @@
 from PyQt5.QtWidgets import QApplication
 from controllers.welcome_controller import WelcomeController
 from controllers.settings_controller import SettingsController
+from controllers.game_controller import GameController
 from views.welcome_view import WelcomeWindow
 from views.settings_view import SettingsWindow
+from views.game_view import GameWindow
 from models.settings_model import SettingsModel
+from models.game_state import GameState
 from logger import get_logger
 
 class GameManager:
@@ -17,6 +20,7 @@ class GameManager:
         # Views
         self.welcome_view = WelcomeWindow()
         self.settings_view = SettingsWindow()
+        self.game_view = GameWindow()
 
         # Controllers
         self.settings_controller = SettingsController(self.settings_model, self.settings_view)
@@ -30,7 +34,10 @@ class GameManager:
 
     def start_game(self):
         self.logger.debug("Starting the Game!")
-        # self.settings_view.hide()
+        self.game_state = GameState(self.settings_model)
+        self.game_controller = GameController(self.game_state, self.game_view)
+        self.settings_view.hide()
+        self.game_controller.show_full_screen()
 
     def show_settings(self):
         self.logger.debug("Switching to settings window")

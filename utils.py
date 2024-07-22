@@ -2,14 +2,15 @@ from PyQt5.QtWidgets import QMainWindow, QLabel, QApplication
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import Qt
 
+from PyQt5.QtWidgets import QMainWindow, QLabel
+from PyQt5.QtGui import QPixmap
+from PyQt5.QtCore import Qt
+
 class BackgroundWindow(QMainWindow):
     def __init__(self, background_path, parent=None):
         super().__init__(parent)
         self.background_path = background_path
         self.background_label = QLabel(self)
-        self.init_ui()
-
-    def init_ui(self):
         self.set_background_image()
 
     def set_background_image(self):
@@ -21,6 +22,7 @@ class BackgroundWindow(QMainWindow):
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self.set_background_image()
+
 
 def resize_and_show_normal(window):
     window.setWindowFlags(Qt.Window)

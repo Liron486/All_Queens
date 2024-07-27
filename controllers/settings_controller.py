@@ -37,9 +37,15 @@ class SettingsController(QObject):
         self.logger.debug(f"Number of real players changed to {number}")
         self.model.set_setting("num_real_players", int(number))
 
-    def set_difficulty(self, difficulty):
-        self.logger.debug(f"Difficulty changed to {difficulty}")
-        self.model.set_setting("difficulty", difficulty)
+    def set_difficulty(self, difficulty, idx):
+        if idx == 0:
+            self.logger.debug(f"Difficulty changed to {difficulty}")
+        else:
+            self.logger.debug(f"Difficulty of the second player changed to {difficulty}")
+
+        difficulty_settings = self.model.get_setting('difficulty')
+        difficulty_settings[idx] = difficulty
+        self.model.set_setting("difficulty", difficulty_settings)
 
     def set_is_starting(self, start):
         is_starting = start == "Yes"

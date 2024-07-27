@@ -1,8 +1,11 @@
 class SettingsModel:
     def __init__(self):
         self.settings = {
-            'sound': True,
-            'difficulty': 'Medium',
+            'sound': False,
+            'difficulty': [
+                'Easy',
+                'Easy'
+            ],
             'num_real_players': 1,
             'is_starting': True,
             'names' : [

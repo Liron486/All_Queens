@@ -5,9 +5,29 @@ from utils import BackgroundWindow
 from logger import get_logger
 
 starting_layer_text = "Do you want to start? "
-difficulty_text = "Difficulty:"
+default_difficulty_text = "Difficulty:"
+difficulty_text_first_player = "Difficulty of The First Player:"
+difficulty_text_second_player = "Difficulty of The Second Player:"
 
-def update_buttons(button_layout, sender):
+def get_sender_layout(sender):
+    parent = sender.parentWidget()
+    layout = parent.layout()
+    if layout is not None:
+        for i in range(layout.count()):
+            item = layout.itemAt(i)
+            child_layout = item.layout()
+            if isinstance(child_layout, QHBoxLayout):
+                for j in range(child_layout.count()):
+                    sub_item = child_layout.itemAt(j)
+                    sub_layout = sub_item.layout()
+                    if isinstance(sub_layout, QHBoxLayout):
+                        for k in range(sub_layout.count()):
+                            if sub_layout.itemAt(k).widget() == sender:
+                                return sub_layout
+    return None
+
+def update_buttons(sender):
+    button_layout = get_sender_layout(sender)
     for i in range(button_layout.count()):
         button_item = button_layout.itemAt(i)
         button = button_item.widget()
@@ -34,7 +54,7 @@ def set_layout_visibility(layout, visible, visible_text):
 class SettingsWindow(BackgroundWindow):
     exit_full_screen_signal = pyqtSignal()
     number_of_players_changed = pyqtSignal(str)
-    difficulty_changed = pyqtSignal(str)
+    difficulty_changed = pyqtSignal(str, int)
     name_changed = pyqtSignal(str, int)
     starting_player_changed = pyqtSignal(str)
     play_clicked = pyqtSignal()
@@ -66,17 +86,23 @@ class SettingsWindow(BackgroundWindow):
         self.line_spacer2 = QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Minimum)
         self.main_layout.addItem(self.line_spacer2)
 
-        self.create_buttom_list(difficulty_text, ["Easy", "Medium", "Hard"], self.change_difficulty)
+        self.create_buttom_list(default_difficulty_text, ["Easy", "Medium", "Hard"], self.change_difficulty1)
 
         self.line_spacer3 = QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Minimum)
         self.main_layout.addItem(self.line_spacer3)
+
+        self.create_buttom_list(difficulty_text_second_player, ["Easy", "Medium", "Hard"], self.change_difficulty2)
 
         self.create_buttom_list(starting_layer_text, ["Yes", "No"], self.change_starting_player)
 
         self.create_play_button()
 
         self.end_spacer = QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Minimum)
+
+        self.adjust_section_visibilty("1")
+
         self.main_layout.addItem(self.end_spacer)
+
 
     def create_main_layout(self):
         central_widget = QWidget(self)
@@ -172,10 +198,11 @@ class SettingsWindow(BackgroundWindow):
         self.adjust_players_names()
         self.adjust_label_and_buttons(7)
         self.adjust_label_and_buttons(9)
+        self.adjust_label_and_buttons(10)
         self.adjust_play_button()
 
     def adjust_play_button(self):
-        main_layout_item = self.main_layout.itemAt(10)
+        main_layout_item = self.main_layout.itemAt(11)
         play_button_layout = main_layout_item.layout()
         play_button_item = play_button_layout.itemAt(0)
         play_button = play_button_item.widget()
@@ -190,7 +217,7 @@ class SettingsWindow(BackgroundWindow):
         top_spacer_height = self.height() * 0.3
         title_spacer_height = self.height() * 0.05
         line_spacer_height = self.height() * 0.01
-        end_spacer_height = self.height() * 0.25
+        end_spacer_height = self.height() * 0.28
 
         self.top_spacer.changeSize(0, int(top_spacer_height), QSizePolicy.Minimum, QSizePolicy.Fixed)
         self.title_spacer.changeSize(0, int(title_spacer_height), QSizePolicy.Minimum, QSizePolicy.Fixed)
@@ -249,44 +276,50 @@ class SettingsWindow(BackgroundWindow):
             button.setFixedSize(int(button_width_size), int(button_height_size))
             button.setFont(QFont('Arial', int(font_size)))
 
-    def get_layout(self, main_layout_idx):
-        main_layout_nplayers_item = self.main_layout.itemAt(main_layout_idx)
-        num_players_layout = main_layout_nplayers_item.layout()
-        button_layout_item = num_players_layout.itemAt(1)
-        button_layout = button_layout_item.layout()
-
-        return button_layout
-
-    def change_number_of_players(self):
-        sender = self.sender()
-        button_layout = self.get_layout(3)
-        update_buttons(button_layout, sender)
-        self.number_of_players_changed.emit(sender.text())
-
+    def adjust_section_visibilty(self, num_real_players):
         # Show or hide the difficulty section based on the number of players selected
         main_layout_difficulty_item = self.main_layout.itemAt(7)
         if main_layout_difficulty_item is not None:
             difficulty_layout = main_layout_difficulty_item.layout()
             if difficulty_layout is not None:
-                set_layout_visibility(difficulty_layout, sender.text() != "2", difficulty_text)
+                if num_real_players == "0":
+                    set_layout_visibility(difficulty_layout, True, difficulty_text_first_player)
+                elif num_real_players == "1":
+                    set_layout_visibility(difficulty_layout, True, default_difficulty_text)
+                else:
+                    set_layout_visibility(difficulty_layout, False, default_difficulty_text)
 
-        main_layout_starting_player_item = self.main_layout.itemAt(9)
+        main_layout_difficulty2_item = self.main_layout.itemAt(9)
+        if main_layout_difficulty2_item is not None:
+            difficulty2_layout = main_layout_difficulty2_item.layout()
+            if difficulty2_layout is not None:
+                set_layout_visibility(difficulty2_layout, num_real_players == "0", difficulty_text_second_player)
+
+        main_layout_starting_player_item = self.main_layout.itemAt(10)
         if main_layout_starting_player_item is not None:
             starting_player_layout = main_layout_starting_player_item.layout()
             if starting_player_layout is not None:
-                set_layout_visibility(starting_player_layout, sender.text() == "1", starting_layer_text)
+                set_layout_visibility(starting_player_layout, num_real_players == "1", starting_layer_text)
 
-
-    def change_difficulty(self):
+    def change_number_of_players(self):
         sender = self.sender()
-        button_layout = self.get_layout(7)
-        update_buttons(button_layout, sender)
-        self.difficulty_changed.emit(sender.text())
+        update_buttons(sender)
+        self.number_of_players_changed.emit(sender.text())
+        self.adjust_section_visibilty(sender.text())
+
+    def change_difficulty1(self):
+        sender = self.sender()
+        update_buttons(sender)
+        self.difficulty_changed.emit(sender.text(), 0)
+
+    def change_difficulty2(self):
+        sender = self.sender()
+        update_buttons(sender)
+        self.difficulty_changed.emit(sender.text(), 1)
 
     def change_starting_player(self):
         sender = self.sender()
-        button_layout = self.get_layout(9)
-        update_buttons(button_layout, sender)
+        update_buttons(sender)
         self.starting_player_changed.emit(sender.text())
 
     def update_label_size(self, label_item, is_title=False):

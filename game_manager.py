@@ -20,7 +20,6 @@ class GameManager:
         # Views
         self.welcome_view = WelcomeWindow()
         self.settings_view = SettingsWindow()
-        self.game_view = GameWindow()
 
         # Controllers
         self.settings_controller = SettingsController(self.settings_model, self.settings_view)
@@ -34,6 +33,7 @@ class GameManager:
 
     def start_game(self):
         self.logger.debug("Starting the Game!")
+        self.game_view = GameWindow(self.settings_model.get_setting('board_size'))
         self.game_state = GameState(self.settings_model)
         self.game_controller = GameController(self.game_state, self.game_view)
         self.settings_view.hide()

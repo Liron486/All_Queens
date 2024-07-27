@@ -6,18 +6,17 @@ from logger import get_logger
 
 class GameWindow(BackgroundWindow):
     exit_full_screen_signal = pyqtSignal()
-    board_size = 5
 
-    def __init__(self):
+    def __init__(self, board_size, parent=None):
         super().__init__('resources/images/game_background.png')
         self.logger = get_logger(self.__class__.__name__)
-        self.init_ui()
+        self.init_ui(board_size)
 
-    def init_ui(self):
+    def init_ui(self, board_size):
         self.setWindowTitle('4 Queens')
         self.create_main_layout()
 
-        self.board = Board(self.board_size)
+        self.board = Board(board_size)
         self.board.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.update_board_size()
         self.main_layout.addWidget(self.board, alignment=Qt.AlignCenter)
@@ -35,14 +34,13 @@ class GameWindow(BackgroundWindow):
         self.main_layout.setAlignment(Qt.AlignCenter)
 
     def update_view(self, game_state):
-        self.board.update_board(game_state.board)
+        self.board.update_board(game_state.get_board())
 
     def resizeEvent(self, event):
-        self.update_board_size()
         super().resizeEvent(event)
+        self.update_board_size()
 
     def update_board_size(self):
-        # Calculate the desired board size (1/3 of the window width)
         window_width = self.width()
         board_size = int(window_width * 0.4)
         self.board.setFixedSize(QSize(board_size, board_size))

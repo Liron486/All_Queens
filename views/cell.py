@@ -1,12 +1,7 @@
 from PyQt5.QtWidgets import QLabel, QSizePolicy, QVBoxLayout
 from PyQt5.QtCore import pyqtSignal, Qt
 from PyQt5.QtGui import QPixmap
-from enum import Enum
-
-class PieceType(Enum):
-    EMPTY = 0
-    WHITE = 1
-    BLACK = 2
+from utils import PieceType
 
 class Cell(QLabel):
     clicked = pyqtSignal(int, int)  # Signal to emit when the cell is clicked

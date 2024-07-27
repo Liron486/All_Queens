@@ -9,6 +9,7 @@ class GameController:
         self.state = game_state
         self.view = view       
         self.setup_connections()
+        self.view.update_view(game_state)
 
     def setup_connections(self):
         self.view.exit_full_screen_signal.connect(self.exit_full_screen)

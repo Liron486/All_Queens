@@ -1,6 +1,7 @@
 class SettingsModel:
     def __init__(self):
         self.settings = {
+            'board_size': 5,
             'sound': False,
             'difficulty': [
                 'Easy',

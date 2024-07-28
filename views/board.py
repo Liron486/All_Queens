@@ -3,7 +3,7 @@ from views.cell import Cell
 from utils import PieceType
 
 class Board(QWidget):
-    color1 = "#FFF8DC"  
+    color1 = "#faeec0"  
     color2 = "#389661"
 
     def __init__(self, board, parent=None):

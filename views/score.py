@@ -1,6 +1,7 @@
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSizePolicy, QSpacerItem
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSizePolicy
 from PyQt5.QtGui import QPixmap, QPalette, QFont
 from PyQt5.QtCore import Qt
+from utils import create_spacer_widget
 
 class ScoreModule(QWidget):
     def __init__(self, player_data, parent=None):
@@ -16,6 +17,7 @@ class ScoreModule(QWidget):
     def init_ui(self):
         layout = QHBoxLayout() 
         layout.addLayout(self.create_player_info_label())
+        layout.addWidget(create_spacer_widget(10,10))
         layout.addWidget(self.create_score_label())
         layout.addWidget(self.crete_piece_pic())
 
@@ -127,15 +129,11 @@ class Score(QWidget):
 
         layout.addWidget(self.player1_score)
         layout.addWidget(self.game_number_module)
+        layout.addWidget(create_spacer_widget(50, 50))
         layout.addWidget(self.player2_score)
 
-        self.setStyleSheet("border: 1px solid black;")
+        self.setStyleSheet("border: 0px solid black;")
         self.setLayout(layout)
-
-    def create_spacer_widget(self, width, height):
-        spacer = QWidget()
-        spacer.setFixedSize(width, height)
-        return spacer
 
     def update_scores(self, player1_score, player2_score):
         self.player1_score.update_score(player1_score)

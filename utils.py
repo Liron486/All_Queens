@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QMainWindow, QLabel, QApplication
+from PyQt5.QtWidgets import QWidget, QMainWindow, QLabel, QApplication, QSpacerItem
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import Qt
 from enum import Enum
@@ -28,6 +28,11 @@ class BackgroundWindow(QMainWindow):
         super().resizeEvent(event)
         self.set_background_image()
 
+
+def create_spacer_widget(width, height):
+    spacer = QWidget()
+    spacer.setFixedSize(width, height)
+    return spacer
 
 def resize_and_show_normal(window):
     window.setWindowFlags(Qt.Window)

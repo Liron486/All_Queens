@@ -7,9 +7,8 @@ class GameController:
     def __init__(self, game_state, view, is_edit_mode=False):
         self.logger = get_logger(self.__class__.__name__)
         self.state = game_state
-        self.view = view       
+        self.view = view 
         self.setup_connections()
-        self.view.update_view(game_state)
 
     def setup_connections(self):
         self.view.exit_full_screen_signal.connect(self.exit_full_screen)

@@ -1,6 +1,6 @@
 from models.settings_model import SettingsModel
 from logger import get_logger
-from utils import PieceType
+from utils import PieceType, WHITE_PIECE_PATH, BLACK_PIECE_PATH
 
 class GameState:
     def __init__(self, settings: SettingsModel):
@@ -21,6 +21,7 @@ class GameState:
         num_real_players = settings.get_setting('num_real_players')
         is_starting = settings.get_setting('is_starting')
         difficulties = settings.get_setting('difficulty')
+        pic_pathes = [WHITE_PIECE_PATH, BLACK_PIECE_PATH]
 
         player_types = ['Human' if i < num_real_players else 'AI' for i in range(len(names))]
         
@@ -30,10 +31,10 @@ class GameState:
                 names[0], names[1] = names[1], names[0]
                 player_types[0], player_types[1] = player_types[1], player_types[0]
 
-        self.players = {
-            name: {'score': 0, 'type': player_type, 'difficulty': difficulty}
-            for name, player_type, difficulty in zip(names, player_types, difficulties)
-        }
+        self.players = [
+            {'name': name, 'score': 0, 'type': player_type, 'difficulty': difficulty, 'piece_path': path}
+            for name, player_type, difficulty, path in zip(names, player_types, difficulties, pic_pathes)
+        ]
 
     def init_board(self):
         size = self.board_size
@@ -53,20 +54,14 @@ class GameState:
                 else:
                     self.board[i][j] = PieceType.EMPTY
 
-    def get_player_names(self):
-        return self.names
-
-    def get_player_scores(self):
-        return self.player_scores
-
-    def get_player_types(self):
-        return self.player_types
-
-    def get_game_number(self):
-        return self.game_number
+    def get_players(self):
+        return self.players
 
     def get_board(self):
         return self.board
+
+    def get_game_number(self):
+        return self.game_number
 
     def update_score(self, player_name):
         if player_name in self.player_scores:

@@ -3,6 +3,9 @@ from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import Qt
 from enum import Enum
 
+WHITE_PIECE_PATH = 'resources/images/white.png'
+BLACK_PIECE_PATH = 'resources/images/black.png'
+
 class PieceType(Enum):
     EMPTY = 0
     WHITE = 1

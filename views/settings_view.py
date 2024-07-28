@@ -336,6 +336,8 @@ class SettingsWindow(BackgroundWindow):
         self.logger.debug(f"Key pressed - {event.key()}")
         if event.key() == Qt.Key_Escape:
             self.exit_full_screen_signal.emit()
+        if event.key() == Qt.Key_Enter or event.key() == Qt.Key_Return:
+            self.start_to_play()
 
     def start_to_play(self):
         self.logger.debug("Play! pressed")

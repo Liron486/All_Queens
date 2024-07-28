@@ -6,29 +6,30 @@ class Board(QWidget):
     color1 = "#FFF8DC"  
     color2 = "#389661"
 
-    def __init__(self, size=5, parent=None):
+    def __init__(self, board, parent=None):
         super().__init__(parent)
-        self.size = size
+        self.board_size = len(board)
         self.cells = {}
-        self.init_ui()
+        self.init_ui(board)
 
-    def init_ui(self):
+    def init_ui(self, board):
         self.grid_layout = QGridLayout()
         self.setLayout(self.grid_layout)
-        self.init_board_ui()
+        self.init_board_background()
+        self.init_board(board)
 
     def handle_cell_click(self, row, col):
         # Handle cell click event
         print(f"Cell clicked at ({row}, {col})")  # Replace with actual logic
 
-    def update_board(self, board):
-        for row in range(self.size):
-            for col in range(self.size):
+    def init_board(self, board):
+        for row in range(self.board_size):
+            for col in range(self.board_size):
                 self.cells[(row, col)].set_cell_content(board[row][col])
 
-    def init_board_ui(self):
-        for row in range(self.size):
-            for col in range(self.size):
+    def init_board_background(self):
+        for row in range(self.board_size):
+            for col in range(self.board_size):
                 color = self.color1 if (row + col) % 2 == 0 else self.color2
                 cell = Cell(row, col, color)
                 cell.clicked.connect(self.handle_cell_click)

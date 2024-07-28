@@ -33,8 +33,8 @@ class GameManager:
 
     def start_game(self):
         self.logger.debug("Starting the Game!")
-        self.game_view = GameWindow(self.settings_model.get_setting('board_size'))
         self.game_state = GameState(self.settings_model)
+        self.game_view = GameWindow(self.game_state.get_players(), self.game_state.get_game_number(), self.game_state.get_board())
         self.game_controller = GameController(self.game_state, self.game_view)
         self.settings_view.hide()
         self.game_controller.show_full_screen()

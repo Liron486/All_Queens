@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import QLabel, QSizePolicy, QVBoxLayout
 from PyQt5.QtCore import pyqtSignal, Qt
 from PyQt5.QtGui import QPixmap
-from utils import PieceType
+from utils import PieceType, BLACK_PIECE_PATH, WHITE_PIECE_PATH
 
 class Cell(QLabel):
     clicked = pyqtSignal(int, int)  # Signal to emit when the cell is clicked
@@ -36,9 +36,9 @@ class Cell(QLabel):
 
     def update_cell(self):
         if self.piece == PieceType.WHITE:
-            pixmap = QPixmap('resources/images/white.png')
+            pixmap = QPixmap(WHITE_PIECE_PATH)
         elif self.piece == PieceType.BLACK:
-            pixmap = QPixmap('resources/images/black.png')
+            pixmap = QPixmap(BLACK_PIECE_PATH)
         else:
             pixmap = None
 

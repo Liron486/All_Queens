@@ -15,7 +15,7 @@ class GameController:
     def setup_connections(self):
         self.view.exit_full_screen_signal.connect(self.exit_full_screen)
         self.game_state.piece_was_chosen.connect(self.piece_was_chosen)
-        self.game_state.player_made_move.connect(self.execute_move)
+        self.game_state.player_finish_move.connect(self.execute_move)
 
     def get_move_from_player(self):
         player_type = self.game_state.get_currrent_player_type()        
@@ -27,6 +27,7 @@ class GameController:
 
     def piece_was_chosen(self, pressed_cell, cells_to_reset, available_cells):
         self.view.reset_cells_view(cells_to_reset)
+        self.view.tag_cells_in_route(self.game_state.get_route_of_last_move())
         if pressed_cell:
             self.view.tag_available_cells(pressed_cell, available_cells)
 
@@ -34,10 +35,10 @@ class GameController:
         self.logger.debug(f"player make the move {move['from']},{move['to']}")
         time.sleep(move['waiting_time'])
         self.view.execute_move(move)
-        self.__end_move_actions(cells_to_reset)
+        self.__end_move_actions(move, cells_to_reset)
 
         if self.game_state.check_for_winner(move):
-            self.logger.debug(f"We Have a Winner!!! {self.game_state.get_current_player_name()} Wins!")
+            self.logger.debug(f"We Have a Winner!!! {self.game_state.get_next_player_name()} Wins!")
         else:
             self.get_move_from_player()
 
@@ -53,6 +54,7 @@ class GameController:
         self.logger.debug("Exit full screen")
         resize_and_show_normal(self.view)
 
-    def __end_move_actions(self, cells_to_reset):
+    def __end_move_actions(self, move, cells_to_reset):
         self.view.reset_cells_view(cells_to_reset)
+        self.view.tag_cells_in_route(self.game_state.get_route_of_last_move())
         self.view.player_make_move_signal.disconnect(self.handle_move_from_player)

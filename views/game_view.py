@@ -35,6 +35,9 @@ class GameWindow(BackgroundWindow):
     def tag_available_cells(self, pressed_cell, available_cells):
         self.board.tag_available_cells(pressed_cell, available_cells)
 
+    def tag_cells_in_route(self, cells_in_route):
+        self.board.tag_cells_in_route(cells_in_route)
+
     def reset_cells_view(self, cells_to_reset):
         self.board.reset_cells_view(cells_to_reset)
 
@@ -50,6 +53,10 @@ class GameWindow(BackgroundWindow):
         self.logger.debug(f"Key pressed - {event.key()}")
         if event.key() == Qt.Key_Escape:
             self.exit_full_screen_signal.emit()
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self.player_make_move_signal.emit(-1, -1)
 
     def create_main_layout(self):
         central_widget = QWidget(self)

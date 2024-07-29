@@ -43,6 +43,9 @@ class Cell(QLabel):
     def cell_available(self):
         self.setStyleSheet(f"background-color: {self.color}; border: 4px solid red;")
 
+    def cell_in_route(self):
+        self.setStyleSheet(f"background-color: {self.color}; border: 4px solid blue;")
+
     def update_cell(self):
         if self.piece == PieceType.WHITE:
             pixmap = QPixmap(WHITE_PIECE_PATH)

@@ -6,7 +6,7 @@ from utils import PieceType, PlayerType, WHITE_PIECE_PATH, BLACK_PIECE_PATH
 
 class GameState(QObject):
     piece_was_chosen = pyqtSignal(tuple, list, list)
-    player_made_move = pyqtSignal(dict, list)
+    player_finish_move = pyqtSignal(dict, list)
 
     def __init__(self, settings: SettingsModel):
         super().__init__()
@@ -21,7 +21,8 @@ class GameState(QObject):
         self.is_edit_mode = settings.get_setting('is_edit_mode')
         self.game_number = 1
         self.current_player_index = 0
-        self.taged_cells = []
+        self.available_cells = []
+        self.cells_in_route = []
         self.init_board()
 
     def init_players_settings(self, settings: SettingsModel):
@@ -66,6 +67,10 @@ class GameState(QObject):
 
     def check_move(self, row, col):
         player = self.players[self.current_player_index]
+        if row == -1 and col == -1:
+            self.reset_player_move(player)
+            return
+
         player_piece_type = player.get_piece_type()
         cell_piece_type = self.board[row][col]
         is_first_click = not player.is_from_assigned()
@@ -75,7 +80,7 @@ class GameState(QObject):
                 self.handle_player_first_move(row, col, player, player_piece_type)
         else:
             if cell_piece_type is PieceType.EMPTY:
-                is_valid_cell = (row, col) in self.taged_cells
+                is_valid_cell = (row, col) in self.available_cells
                 if is_valid_cell:
                     self.handle_player_second_move(row, col, player, player_piece_type)
                 else:
@@ -97,19 +102,21 @@ class GameState(QObject):
         self.board[row][col] = self.board[move["from"][0]][move["from"][1]]
         self.board[move["from"][0]][move["from"][1]] = PieceType.EMPTY
         self.current_player_index = 1 - self.current_player_index
-        self.player_made_move.emit(move, self.taged_cells)
+        cells_to_reset = self.available_cells + self.cells_in_route
+        self.update_move_route(move)
+        self.player_finish_move.emit(move, cells_to_reset)
         player.reset_move()
 
     def handle_player_first_move(self, row, col, player, player_piece_type):
         player.set_from_move(row, col)
         available_cells = get_available_cells_to_move(self.board, row, col, self.board_size)
-        self.piece_was_chosen.emit((row, col), self.taged_cells, available_cells)
-        self.taged_cells = available_cells + [(row, col)]
+        self.piece_was_chosen.emit((row, col), self.available_cells, available_cells)
+        self.available_cells = available_cells + [(row, col)]
 
     def reset_player_move(self, player):
-        self.piece_was_chosen.emit((), self.taged_cells, [])
+        self.piece_was_chosen.emit((), self.available_cells, [])
         player.reset_move()
-        self.taged_cells = []
+        self.available_cells = []
      
     def get_players(self):
         return self.players
@@ -130,10 +137,33 @@ class GameState(QObject):
     def get_currrent_player_type(self):
         return self.players[self.current_player_index].get_player_type()
 
-    def get_current_player_name(self):
-        return self.players[self.current_player_index].get_name()
+    def get_next_player_name(self):
+        return self.players[1 - self.current_player_index].get_name()
 
     def get_ai_move(self):
         return self.players[self.current_player_index].make_move()
 
+    def get_route_of_last_move(self):
+        return self.cells_in_route
 
+    def update_move_route(self, move):
+        self.cells_in_route.clear()
+        start_row, start_col = move['from']
+        end_row, end_col = move['to']
+
+        if start_row == end_row:  # Horizontal move
+            step = 1 if start_col < end_col else -1
+            for col in range(start_col, end_col + step, step):
+                self.cells_in_route.append((start_row, col))
+        elif start_col == end_col:  # Vertical move
+            step = 1 if start_row < end_row else -1
+            for row in range(start_row, end_row + step, step):
+                self.cells_in_route.append((row, start_col))
+        elif abs(start_row - end_row) == abs(start_col - end_col):  # Diagonal move
+            row_step = 1 if start_row < end_row else -1
+            col_step = 1 if start_col < end_col else -1
+            row, col = start_row, start_col
+            while row != end_row + row_step and col != end_col + col_step:
+                self.cells_in_route.append((row, col))
+                row += row_step
+                col += col_step

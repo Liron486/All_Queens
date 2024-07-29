@@ -30,6 +30,10 @@ class Board(QWidget):
         for cell in cells_to_reset:
             self.cells[cell].reset_cell()
 
+    def tag_cells_in_route(self, cells_in_route):
+        for cell in cells_in_route:
+            self.cells[cell].cell_in_route()
+
     def tag_available_cells(self, pressed_cell, available_cells):
         self.cells[pressed_cell].cell_pressed()
         for cell in available_cells:

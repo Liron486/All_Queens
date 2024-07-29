@@ -1,9 +1,15 @@
+from PyQt5.QtCore import pyqtSignal, QObject
 from models.settings_model import SettingsModel
+from models.player import Player, HumanPlayer, get_available_cells_to_move, check_if_move_wins
 from logger import get_logger
-from utils import PieceType, WHITE_PIECE_PATH, BLACK_PIECE_PATH
+from utils import PieceType, PlayerType, WHITE_PIECE_PATH, BLACK_PIECE_PATH
 
-class GameState:
+class GameState(QObject):
+    piece_was_chosen = pyqtSignal(tuple, list, list)
+    player_made_move = pyqtSignal(dict, list)
+
     def __init__(self, settings: SettingsModel):
+        super().__init__()
         self.logger = get_logger(self.__class__.__name__)
         self.init_game_state(settings)
 
@@ -14,6 +20,8 @@ class GameState:
         self.difficulty = settings.get_setting('difficulty')
         self.is_edit_mode = settings.get_setting('is_edit_mode')
         self.game_number = 1
+        self.current_player_index = 0
+        self.taged_cells = []
         self.init_board()
 
     def init_players_settings(self, settings: SettingsModel):
@@ -22,8 +30,9 @@ class GameState:
         is_starting = settings.get_setting('is_starting')
         difficulties = settings.get_setting('difficulty')
         pic_pathes = [WHITE_PIECE_PATH, BLACK_PIECE_PATH]
+        piece_types = [PieceType.WHITE, PieceType.BLACK]
 
-        player_types = ['Human' if i < num_real_players else 'AI' for i in range(len(names))]
+        player_types = [PlayerType.HUMAN if i < num_real_players else PlayerType.AI for i in range(len(names))]
         
         if num_real_players == 1:
             difficulties[1] = difficulties[0]
@@ -32,8 +41,9 @@ class GameState:
                 player_types[0], player_types[1] = player_types[1], player_types[0]
 
         self.players = [
-            {'name': name, 'score': 0, 'type': player_type, 'difficulty': difficulty, 'piece_path': path}
-            for name, player_type, difficulty, path in zip(names, player_types, difficulties, pic_pathes)
+            HumanPlayer(name, player_type, difficulty, piece_type, path) if player_type == PlayerType.HUMAN
+            else Player(name, player_type, difficulty, piece_type, path) 
+            for name, player_type, difficulty, piece_type, path in zip(names, player_types, difficulties, piece_types, pic_pathes)
         ]
 
     def init_board(self):
@@ -54,6 +64,53 @@ class GameState:
                 else:
                     self.board[i][j] = PieceType.EMPTY
 
+    def check_move(self, row, col):
+        player = self.players[self.current_player_index]
+        player_piece_type = player.get_piece_type()
+        cell_piece_type = self.board[row][col]
+        is_first_click = not player.is_from_assigned()
+
+        if is_first_click:
+            if cell_piece_type is player_piece_type:
+                self.handle_player_first_move(row, col, player, player_piece_type)
+        else:
+            if cell_piece_type is PieceType.EMPTY:
+                is_valid_cell = (row, col) in self.taged_cells
+                if is_valid_cell:
+                    self.handle_player_second_move(row, col, player, player_piece_type)
+                else:
+                    self.reset_player_move(player)
+            elif cell_piece_type is player_piece_type:
+                self.handle_player_first_move(row, col, player, player_piece_type)
+            else:
+                self.reset_player_move(player)
+            
+
+    def check_for_winner(self, last_move):
+        row, col = last_move['to'][0], last_move['to'][1]
+        piece_type = self.board[row][col]
+        return check_if_move_wins(self.board, row, col, piece_type, self.board_size)
+
+    def handle_player_second_move(self, row, col, player, player_piece_type):
+        player.set_to_move(row, col)
+        move = player.make_move()
+        self.board[row][col] = self.board[move["from"][0]][move["from"][1]]
+        self.board[move["from"][0]][move["from"][1]] = PieceType.EMPTY
+        self.current_player_index = 1 - self.current_player_index
+        self.player_made_move.emit(move, self.taged_cells)
+        player.reset_move()
+
+    def handle_player_first_move(self, row, col, player, player_piece_type):
+        player.set_from_move(row, col)
+        available_cells = get_available_cells_to_move(self.board, row, col, self.board_size)
+        self.piece_was_chosen.emit((row, col), self.taged_cells, available_cells)
+        self.taged_cells = available_cells + [(row, col)]
+
+    def reset_player_move(self, player):
+        self.piece_was_chosen.emit((), self.taged_cells, [])
+        player.reset_move()
+        self.taged_cells = []
+     
     def get_players(self):
         return self.players
 
@@ -69,4 +126,14 @@ class GameState:
 
     def increment_game_number(self):
         self.game_number += 1
+
+    def get_currrent_player_type(self):
+        return self.players[self.current_player_index].get_player_type()
+
+    def get_current_player_name(self):
+        return self.players[self.current_player_index].get_name()
+
+    def get_ai_move(self):
+        return self.players[self.current_player_index].make_move()
+
 

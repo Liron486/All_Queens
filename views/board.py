@@ -1,8 +1,10 @@
 from PyQt5.QtWidgets import QWidget, QGridLayout, QSizePolicy
+from PyQt5.QtCore import pyqtSignal
 from views.cell import Cell
 from utils import PieceType
 
 class Board(QWidget):
+    cell_clicked = pyqtSignal(int, int)
     color1 = "#faeec0"  
     color2 = "#389661"
 
@@ -18,9 +20,23 @@ class Board(QWidget):
         self.init_board_background()
         self.init_board(board)
 
+    def set_cell_content(self, cell, piece_type):
+        self.cells[cell].set_cell_content(piece_type)
+
+    def get_cell_piece_type(self, cell):
+        return self.cells[cell].get_piece_type()
+
+    def reset_cells_view(self, cells_to_reset):
+        for cell in cells_to_reset:
+            self.cells[cell].reset_cell()
+
+    def tag_available_cells(self, pressed_cell, available_cells):
+        self.cells[pressed_cell].cell_pressed()
+        for cell in available_cells:
+            self.cells[cell].cell_available()
+
     def handle_cell_click(self, row, col):
-        # Handle cell click event
-        print(f"Cell clicked at ({row}, {col})")  # Replace with actual logic
+        self.cell_clicked.emit(row, col)
 
     def init_board(self, board):
         for row in range(self.board_size):

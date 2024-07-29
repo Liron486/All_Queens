@@ -6,6 +6,10 @@ from enum import Enum
 WHITE_PIECE_PATH = 'resources/images/white.png'
 BLACK_PIECE_PATH = 'resources/images/black.png'
 
+class PlayerType(Enum):
+    HUMAN = 0
+    AI = 1
+    
 class PieceType(Enum):
     EMPTY = 0
     WHITE = 1

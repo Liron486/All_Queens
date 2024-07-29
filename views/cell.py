@@ -15,7 +15,7 @@ class Cell(QLabel):
         self.init_ui()
 
     def init_ui(self):
-        self.setStyleSheet(f"background-color: {self.color}; border: 1px solid black;")
+        self.reset_cell()
         self.setAlignment(Qt.AlignCenter)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
@@ -33,6 +33,15 @@ class Cell(QLabel):
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
             self.clicked.emit(self.row, self.col)  # Emit the clicked signal with row and column
+
+    def reset_cell(self):
+        self.setStyleSheet(f"background-color: {self.color}; border: 1px solid black;")
+    
+    def cell_pressed(self):
+        self.setStyleSheet(f"background-color: #d9f4fc; border: 1px solid black;")
+
+    def cell_available(self):
+        self.setStyleSheet(f"background-color: {self.color}; border: 4px solid red;")
 
     def update_cell(self):
         if self.piece == PieceType.WHITE:
@@ -55,3 +64,6 @@ class Cell(QLabel):
     def set_cell_content(self, piece_type):
         self.piece = piece_type
         self.update_cell()
+
+    def get_piece_type(self):
+        return self.piece

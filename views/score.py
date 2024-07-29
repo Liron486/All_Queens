@@ -1,23 +1,23 @@
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSizePolicy
 from PyQt5.QtGui import QPixmap, QPalette, QFont
 from PyQt5.QtCore import Qt
-from utils import create_spacer_widget
+from utils import create_spacer_widget, PlayerType
 
 class ScoreModule(QWidget):
-    def __init__(self, player_data, parent=None):
+    def __init__(self, player, parent=None):
         super().__init__(parent)
-        self.player_name = player_data["name"]
-        self.type = player_data["type"]
-        self.difficulty = player_data["difficulty"]
-        self.score = player_data["score"]
-        self.pic_path = player_data["piece_path"]
+        self.player_name = player.get_name()
+        self.type = player.get_player_type()
+        self.difficulty = player.get_difficulty()
+        self.score = player.get_score()
+        self.pic_path = player.get_piece_path()
         self.pixmap = QPixmap(self.pic_path)
         self.init_ui()
 
     def init_ui(self):
         layout = QHBoxLayout() 
         layout.addLayout(self.create_player_info_label())
-        layout.addWidget(create_spacer_widget(10,10))
+        layout.addWidget(create_spacer_widget(self.width() * 0.015, self.height() * 0.02))
         layout.addWidget(self.create_score_label())
         layout.addWidget(self.crete_piece_pic())
 
@@ -35,9 +35,10 @@ class ScoreModule(QWidget):
         player_info_layout.addWidget(self.name_label)
 
         # Player info text
-        player_info_text = f"{self.type}"
-        if self.type == 'AI':
-            player_info_text += f", {self.difficulty}"
+        if self.type == PlayerType.HUMAN:
+            player_info_text = "Human"
+        else:
+            player_info_text = f"AI, {self.difficulty}"
         self.type_label = QLabel(player_info_text)
         self.type_label.setStyleSheet("color: black;")
         self.type_label.setFont(QFont('Arial', 10)) 
@@ -129,7 +130,7 @@ class Score(QWidget):
 
         layout.addWidget(self.player1_score)
         layout.addWidget(self.game_number_module)
-        layout.addWidget(create_spacer_widget(50, 50))
+        layout.addWidget(create_spacer_widget(self.width() * 0.078, self.height() * 0.1))
         layout.addWidget(self.player2_score)
 
         self.setStyleSheet("border: 0px solid black;")

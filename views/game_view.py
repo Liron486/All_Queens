@@ -7,6 +7,7 @@ from logger import get_logger
 
 class GameWindow(BackgroundWindow):
     exit_full_screen_signal = pyqtSignal()
+    key_pressed_signal = pyqtSignal()
     player_make_move_signal = pyqtSignal(int, int)
 
     def __init__(self, players, game_number, board, parent=None):
@@ -53,10 +54,18 @@ class GameWindow(BackgroundWindow):
         self.logger.debug(f"Key pressed - {event.key()}")
         if event.key() == Qt.Key_Escape:
             self.exit_full_screen_signal.emit()
+        else:
+            self.key_pressed_signal.emit()
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
             self.player_make_move_signal.emit(-1, -1)
+
+    def start_new_game(self, board, players_data, cells_to_reset, game_number):
+        self.reset_cells_view(cells_to_reset)
+        self.board.reset_board(board)
+        self.score.update_scores(players_data)
+        self.score.update_game_number(game_number)
 
     def create_main_layout(self):
         central_widget = QWidget(self)

@@ -18,7 +18,7 @@ class Board(QWidget):
         self.grid_layout = QGridLayout()
         self.setLayout(self.grid_layout)
         self.init_board_background()
-        self.init_board(board)
+        self.reset_board(board)
 
     def set_cell_content(self, cell, piece_type):
         self.cells[cell].set_cell_content(piece_type)
@@ -42,7 +42,7 @@ class Board(QWidget):
     def handle_cell_click(self, row, col):
         self.cell_clicked.emit(row, col)
 
-    def init_board(self, board):
+    def reset_board(self, board):
         for row in range(self.board_size):
             for col in range(self.board_size):
                 self.cells[(row, col)].set_cell_content(board[row][col])

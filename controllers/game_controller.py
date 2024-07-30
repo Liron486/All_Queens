@@ -14,6 +14,7 @@ class GameController:
 
     def setup_connections(self):
         self.view.exit_full_screen_signal.connect(self.exit_full_screen)
+        self.view.key_pressed_signal.connect(self.start_new_game)
         self.game_state.piece_was_chosen.connect(self.piece_was_chosen)
         self.game_state.player_finish_move.connect(self.execute_move)
 
@@ -45,6 +46,15 @@ class GameController:
     def handle_move_from_player(self, row, col):
         self.logger.debug(f"player pressed on cell ({row},{col})")
         self.game_state.check_move(row,col)
+
+    def start_new_game(self):
+        state = self.game_state
+        if not state.is_game_in_progress():
+            self.logger.debug("Starting new game")
+            route_to_reset = state.get_route_of_last_move().copy()
+            state.start_new_game()
+            self.view.start_new_game(state.get_board(), state.get_players(), route_to_reset, state.get_game_number())
+            self.get_move_from_player()
 
     def show_full_screen(self):
         self.view.show()

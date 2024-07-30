@@ -24,6 +24,7 @@ class GameState(QObject):
         self.available_cells = []
         self.cells_in_route = []
         self.init_board()
+        self.game_in_progress = True
 
     def init_players_settings(self, settings: SettingsModel):
         names = settings.get_setting('names')
@@ -90,11 +91,13 @@ class GameState(QObject):
             else:
                 self.reset_player_move(player)
             
-
     def check_for_winner(self, last_move):
         row, col = last_move['to'][0], last_move['to'][1]
         piece_type = self.board[row][col]
-        return check_if_move_wins(self.board, row, col, piece_type, self.board_size)
+        is_winner = check_if_move_wins(self.board, row, col, piece_type, self.board_size)
+        if is_winner:
+            self.game_in_progress = False
+        return is_winner
 
     def handle_player_second_move(self, row, col, player, player_piece_type):
         player.set_to_move(row, col)
@@ -117,7 +120,18 @@ class GameState(QObject):
         self.piece_was_chosen.emit((), self.available_cells, [])
         player.reset_move()
         self.available_cells = []
-     
+    
+    def start_new_game(self):
+        self.init_board()
+        self.players[1 - self.current_player_index].update_score()
+        self.current_player_index = 0
+        self.game_number += 1
+        self.game_in_progress = True
+        self.cells_in_route.clear()
+
+    def is_game_in_progress(self):
+        return self.game_in_progress
+
     def get_players(self):
         return self.players
 

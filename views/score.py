@@ -68,9 +68,9 @@ class ScoreModule(QWidget):
         self.setAutoFillBackground(True)
         self.setPalette(palette)
 
-    def update_score(self, new_score):
-        self.score = new_score
-        self.score_label.setText(f"Score: {self.score}")
+    def update_score(self, player):
+        self.score = player.get_score()
+        self.score_label.setText(f"{self.score}")
 
     def update_pixmap(self):
         if not self.pixmap.isNull():
@@ -136,9 +136,9 @@ class Score(QWidget):
         self.setStyleSheet("border: 0px solid black;")
         self.setLayout(layout)
 
-    def update_scores(self, player1_score, player2_score):
-        self.player1_score.update_score(player1_score)
-        self.player2_score.update_score(player2_score)
+    def update_scores(self, players_data):
+        self.player1_score.update_score(players_data[0])
+        self.player2_score.update_score(players_data[1])
 
     def update_game_number(self, game_number):
         self.game_number_module.update_game_number(game_number)

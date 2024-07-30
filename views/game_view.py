@@ -1,5 +1,6 @@
-from PyQt5.QtWidgets import QVBoxLayout, QWidget, QSizePolicy, QHBoxLayout
+from PyQt5.QtWidgets import QVBoxLayout, QWidget, QSizePolicy, QHBoxLayout, QLabel
 from PyQt5.QtCore import pyqtSignal, Qt, QSize
+from PyQt5.QtGui import QFont
 from views.board import Board
 from views.score import Score
 from utils import BackgroundWindow, PieceType
@@ -33,6 +34,22 @@ class GameWindow(BackgroundWindow):
         self.board.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.main_layout.addWidget(self.board, alignment=Qt.AlignCenter)
 
+        # Create winning text component
+        self.winning_text = QLabel("")
+        self.winning_text.setStyleSheet("color: black; font-weight: bold;")
+        self.winning_text.setFont(QFont('Arial', 18))
+        self.winning_text.setAlignment(Qt.AlignCenter)
+        self.winning_text.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        self.main_layout.addWidget(self.winning_text)
+
+        # Create play again text component
+        self.play_again_text = QLabel("")
+        self.play_again_text.setStyleSheet("color: black;")
+        self.play_again_text.setFont(QFont('Arial', 10))
+        self.play_again_text.setAlignment(Qt.AlignCenter)
+        self.play_again_text.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        self.main_layout.addWidget(self.play_again_text)
+
     def tag_available_cells(self, pressed_cell, available_cells):
         self.board.tag_available_cells(pressed_cell, available_cells)
 
@@ -57,6 +74,10 @@ class GameWindow(BackgroundWindow):
         else:
             self.key_pressed_signal.emit()
 
+    def display_winning_text(self, winner):
+        self.winning_text.setText(f"We Have A Winner! {winner} Wins!")
+        self.play_again_text.setText("Press any key to start a new game")
+
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
             self.player_make_move_signal.emit(-1, -1)
@@ -66,6 +87,8 @@ class GameWindow(BackgroundWindow):
         self.board.reset_board(board)
         self.score.update_scores(players_data)
         self.score.update_game_number(game_number)
+        self.winning_text.setText("")
+        self.play_again_text.setText("")
 
     def create_main_layout(self):
         central_widget = QWidget(self)

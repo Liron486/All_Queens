@@ -40,6 +40,7 @@ class GameController:
 
         if self.game_state.check_for_winner(move):
             self.logger.debug(f"We Have a Winner!!! {self.game_state.get_next_player_name()} Wins!")
+            self.view.display_winning_text(self.game_state.get_next_player_name())
         else:
             self.get_move_from_player()
 

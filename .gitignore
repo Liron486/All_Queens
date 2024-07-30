@@ -1,2 +1,5 @@
 *.cpython*
+*.spec
+build/
+dist/
 4Queens.log

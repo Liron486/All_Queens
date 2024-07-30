@@ -1,5 +1,5 @@
 from PyQt5.QtCore import pyqtSignal, Qt
-from utils import BackgroundWindow
+from utils import BackgroundWindow, resource_path
 from logger import get_logger
 
 class WelcomeWindow(BackgroundWindow):
@@ -7,7 +7,7 @@ class WelcomeWindow(BackgroundWindow):
     switch_to_settings_signal = pyqtSignal()
 
     def __init__(self):
-        super().__init__('resources/images/welcome_background.png')
+        super().__init__(resource_path('resources/images/welcome_background.png'))
         self.logger = get_logger(self.__class__.__name__)
         self.init_ui()
 

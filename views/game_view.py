@@ -3,7 +3,7 @@ from PyQt5.QtCore import pyqtSignal, Qt, QSize
 from PyQt5.QtGui import QFont
 from views.board import Board
 from views.score import Score
-from utils import BackgroundWindow, PieceType
+from utils import BackgroundWindow, PieceType, resource_path
 from logger import get_logger
 
 class GameWindow(BackgroundWindow):
@@ -12,7 +12,7 @@ class GameWindow(BackgroundWindow):
     player_make_move_signal = pyqtSignal(int, int)
 
     def __init__(self, players, game_number, board, parent=None):
-        super().__init__('resources/images/game_background.png', parent)
+        super().__init__(resource_path('resources/images/game_background.png'), parent)
         self.logger = get_logger(self.__class__.__name__)
         self.init_ui(players, game_number, board)
         self.setup_connections()

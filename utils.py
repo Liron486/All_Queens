@@ -1,15 +1,25 @@
+import sys
+import os
 from PyQt5.QtWidgets import QWidget, QMainWindow, QLabel, QApplication, QSpacerItem
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import Qt
 from enum import Enum
 
-WHITE_PIECE_PATH = 'resources/images/white.png'
-BLACK_PIECE_PATH = 'resources/images/black.png'
+# install command
+# pyinstaller --onefile --windowed --name "4Queens" --add-data "resources/images/*.png;resources/images" main.py
+
+def resource_path(relative_path):
+    """ Get the absolute path to the resource, works for dev and for PyInstaller """
+    base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base_path, relative_path)
+    
+WHITE_PIECE_PATH = resource_path('resources/images/white.png')
+BLACK_PIECE_PATH = resource_path('resources/images/black.png')
 
 class PlayerType(Enum):
     HUMAN = 0
     AI = 1
-    
+
 class PieceType(Enum):
     EMPTY = 0
     WHITE = 1

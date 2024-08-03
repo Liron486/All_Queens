@@ -1,5 +1,7 @@
 from PyQt5.QtCore import pyqtSignal
 from utils import PieceType
+import copy
+import random
 
 def get_available_cells_in_direction(board, row, col, row_step, col_step, max_size):
     available_cells = []
@@ -86,6 +88,9 @@ class Player:
         self.piece_type = piece_type
         self.piece_path = piece_path
         self.score = 0
+        self.positions = []
+        self.move = { "from": None, "to": None, "waiting_time": 0}
+
 
     def make_move(self, *args, **kwargs):
         raise NotImplementedError("This method should be implemented by subclasses")
@@ -108,21 +113,22 @@ class Player:
     def get_score(self):
         return self.score
 
+    def get_positions(self):
+        return self.positions
+
+    def init_positions(self, point):
+        self.positions.append(point)
+
+    def update_positions(self):
+        self.positions.remove(self.move['from'])
+        self.positions.append(self.move['to'])        
+    
     def update_score(self):
         self.score += 1
 
-class HumanPlayer(Player):
-    def __init__(self, name, player_type, difficulty, piece_type, piece_path):
-        super().__init__(name, player_type, difficulty, piece_type, piece_path)
-        self.move = { "from": None, "to": None, "waiting_time": 0}
-    
-    def make_move(self):
-        return self.move
-
-    def reset_move(self):
-        self.move["from"] = None
-        self.move["to"] = None
-
+    def is_move_assigned(self):
+        return self.move["from"] is not None and self.move["to"] is not None
+        
     def is_from_assigned(self):
         return self.move["from"] is not None
 
@@ -131,4 +137,41 @@ class HumanPlayer(Player):
     
     def set_to_move(self, row, col):
         self.move["to"] = (row, col)
+
+    def set_move_waiting_time(self, time):
+        self.move["waiting_time"] = time
+
+    def reset_move(self):
+        if self.is_move_assigned():
+            self.update_positions()
+            self.move["from"] = None
+            self.move["to"] = None
+
+class HumanPlayer(Player):
+    def __init__(self, name, player_type, difficulty, piece_type, piece_path):
+        super().__init__(name, player_type, difficulty, piece_type, piece_path)
+    
+    def make_move(self):
+        return self.move
+
+
+class AiPlayerEasy(Player):
+    def __init__(self, name, player_type, difficulty, piece_type, piece_path):
+        super().__init__(name, player_type, difficulty, piece_type, piece_path)
+
+    def make_move(self, board, other_player_positions, board_size):
+        from_move = None
+        to_move = None
+        for i in range(0, board_size):
+            for j in range(0, board_size):
+                if board[i][j] == self.get_piece_type():
+                    moves = get_available_cells_to_move(board, i, j, board_size)
+                    if moves:
+                        to_move = random.choice(moves)
+                        self.set_from_move(i,j)
+                        self.set_to_move(to_move[0], to_move[1])
+                        break
+        self.move["waiting_time"] = 1
+        return copy.deepcopy(self.move)
+                    
 

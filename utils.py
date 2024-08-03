@@ -21,9 +21,9 @@ class PlayerType(Enum):
     AI = 1
 
 class PieceType(Enum):
-    EMPTY = 0
-    WHITE = 1
-    BLACK = 2
+    WHITE = 0
+    BLACK = 1
+    EMPTY = 2
 
 class BackgroundWindow(QMainWindow):
     def __init__(self, background_path, parent=None):

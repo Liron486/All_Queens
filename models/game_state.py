@@ -1,12 +1,12 @@
 from PyQt5.QtCore import pyqtSignal, QObject
 from models.settings_model import SettingsModel
-from models.player import Player, HumanPlayer, get_available_cells_to_move, check_if_move_wins
+from models.player import Player, HumanPlayer, AiPlayerEasy, get_available_cells_to_move, check_if_move_wins
 from logger import get_logger
 from utils import PieceType, PlayerType, WHITE_PIECE_PATH, BLACK_PIECE_PATH
 
 class GameState(QObject):
     piece_was_chosen = pyqtSignal(tuple, list, list)
-    player_finish_move = pyqtSignal(dict, list)
+    player_finish_move = pyqtSignal(dict, list, PlayerType)
 
     def __init__(self, settings: SettingsModel):
         super().__init__()
@@ -23,8 +23,8 @@ class GameState(QObject):
         self.current_player_index = 0
         self.available_cells = []
         self.cells_in_route = []
-        self.init_board()
         self.game_in_progress = True
+        self.init_board()
 
     def init_players_settings(self, settings: SettingsModel):
         names = settings.get_setting('names')
@@ -44,8 +44,9 @@ class GameState(QObject):
 
         self.players = [
             HumanPlayer(name, player_type, difficulty, piece_type, path) if player_type == PlayerType.HUMAN
-            else Player(name, player_type, difficulty, piece_type, path) 
-            for name, player_type, difficulty, piece_type, path in zip(names, player_types, difficulties, piece_types, pic_pathes)
+            else AiPlayerEasy(name, player_type, difficulty, piece_type, path) if player_type == PlayerType.AI and difficulty == "Easy"
+            else Player(name, player_type, difficulty, piece_type, path)
+            for idx, (name, player_type, difficulty, piece_type, path) in enumerate(zip(names, player_types, difficulties, piece_types, pic_pathes))
         ]
 
     def init_board(self):
@@ -56,13 +57,19 @@ class GameState(QObject):
         for i in range(size):
             for j in range(size):
                 if i == 0:
-                    self.board[i][j] = PieceType.BLACK if j % 2 == 0 else PieceType.WHITE
+                    piece_type = PieceType.BLACK if j % 2 == 0 else PieceType.WHITE
+                    self.board[i][j] = piece_type
+                    self.players[piece_type.value].init_positions((i,j)) 
                 elif i == mid and j == 0:
                     self.board[i][j] = PieceType.BLACK
+                    self.players[PieceType.BLACK.value].init_positions((i,j)) 
                 elif i == mid and j == size - 1:
                     self.board[i][j] = PieceType.WHITE
+                    self.players[PieceType.WHITE.value].init_positions((i,j)) 
                 elif i == size - 1:
-                    self.board[i][j] = PieceType.WHITE if j % 2 == 0 else PieceType.BLACK
+                    piece_type = PieceType.WHITE if j % 2 == 0 else PieceType.BLACK
+                    self.board[i][j] = piece_type
+                    self.players[piece_type.value].init_positions((i,j))
                 else:
                     self.board[i][j] = PieceType.EMPTY
 
@@ -99,6 +106,18 @@ class GameState(QObject):
             self.game_in_progress = False
         return is_winner
 
+    def get_ai_move(self):
+        player = self.players[self.current_player_index]
+        other_player = self.players[1 - self.current_player_index]
+        move = player.make_move(self.board, other_player.get_positions(), self.board_size)
+        self.board[move["to"][0]][move["to"][1]] = self.board[move["from"][0]][move["from"][1]]
+        self.board[move["from"][0]][move["from"][1]] = PieceType.EMPTY
+        self.current_player_index = 1 - self.current_player_index
+        cells_to_reset = self.available_cells + self.cells_in_route
+        self.update_move_route(move)
+        player.reset_move()
+        return move, cells_to_reset
+
     def handle_player_second_move(self, row, col, player, player_piece_type):
         player.set_to_move(row, col)
         move = player.make_move()
@@ -107,7 +126,7 @@ class GameState(QObject):
         self.current_player_index = 1 - self.current_player_index
         cells_to_reset = self.available_cells + self.cells_in_route
         self.update_move_route(move)
-        self.player_finish_move.emit(move, cells_to_reset)
+        self.player_finish_move.emit(move, cells_to_reset, player.get_player_type())
         player.reset_move()
 
     def handle_player_first_move(self, row, col, player, player_piece_type):
@@ -154,9 +173,6 @@ class GameState(QObject):
     def get_next_player_name(self):
         return self.players[1 - self.current_player_index].get_name()
 
-    def get_ai_move(self):
-        return self.players[self.current_player_index].make_move()
-
     def get_route_of_last_move(self):
         return self.cells_in_route
 
@@ -181,3 +197,6 @@ class GameState(QObject):
                 self.cells_in_route.append((row, col))
                 row += row_step
                 col += col_step
+
+
+

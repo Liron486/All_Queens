@@ -1,4 +1,5 @@
 import time
+from PyQt5.QtWidgets import QApplication
 from PyQt5.QtCore import pyqtSignal
 from utils import PlayerType, resize_and_show_normal
 from models.game_state import GameState
@@ -23,8 +24,8 @@ class GameController:
         if player_type is PlayerType.HUMAN:
             self.view.player_make_move_signal.connect(self.handle_move_from_player)
         else:
-            move = self.game_state.get_ai_move()
-            self.move_finished([], move)
+            move, cells_to_reset = self.game_state.get_ai_move()
+            self.execute_move(move, cells_to_reset, player_type)
 
     def piece_was_chosen(self, pressed_cell, cells_to_reset, available_cells):
         self.view.reset_cells_view(cells_to_reset)
@@ -32,11 +33,13 @@ class GameController:
         if pressed_cell:
             self.view.tag_available_cells(pressed_cell, available_cells)
 
-    def execute_move(self, move, cells_to_reset):
+    def execute_move(self, move, cells_to_reset, player_type):
         self.logger.debug(f"player make the move {move['from']},{move['to']}")
+        self.logger.debug(f"waiting {move['waiting_time']}")
+        QApplication.processEvents()
         time.sleep(move['waiting_time'])
         self.view.execute_move(move)
-        self.__end_move_actions(move, cells_to_reset)
+        self.__end_move_actions(move, cells_to_reset, player_type)
 
         if self.game_state.check_for_winner(move):
             self.logger.debug(f"We Have a Winner!!! {self.game_state.get_next_player_name()} Wins!")
@@ -65,7 +68,8 @@ class GameController:
         self.logger.debug("Exit full screen")
         resize_and_show_normal(self.view)
 
-    def __end_move_actions(self, move, cells_to_reset):
+    def __end_move_actions(self, move, cells_to_reset, player_type):
         self.view.reset_cells_view(cells_to_reset)
         self.view.tag_cells_in_route(self.game_state.get_route_of_last_move())
-        self.view.player_make_move_signal.disconnect(self.handle_move_from_player)
+        if player_type == PlayerType.HUMAN:
+            self.view.player_make_move_signal.disconnect(self.handle_move_from_player)

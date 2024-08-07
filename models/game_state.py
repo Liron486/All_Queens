@@ -178,25 +178,31 @@ class GameState(QObject):
 
     def update_move_route(self, move):
         self.cells_in_route.clear()
+        self.cells_in_route.append(move["from"])
+        self.cells_in_route.append(move["to"])
+
+    def get_all_cells_in_route(self, move):
+        cells = []
         start_row, start_col = move['from']
         end_row, end_col = move['to']
 
         if start_row == end_row:  # Horizontal move
             step = 1 if start_col < end_col else -1
             for col in range(start_col, end_col + step, step):
-                self.cells_in_route.append((start_row, col))
+                cells.append((start_row, col))
         elif start_col == end_col:  # Vertical move
             step = 1 if start_row < end_row else -1
             for row in range(start_row, end_row + step, step):
-                self.cells_in_route.append((row, start_col))
+                cells.append((row, start_col))
         elif abs(start_row - end_row) == abs(start_col - end_col):  # Diagonal move
             row_step = 1 if start_row < end_row else -1
             col_step = 1 if start_col < end_col else -1
             row, col = start_row, start_col
             while row != end_row + row_step and col != end_col + col_step:
-                self.cells_in_route.append((row, col))
+                cells.append((row, col))
                 row += row_step
                 col += col_step
+        return cells
 
 
 

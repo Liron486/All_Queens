@@ -115,6 +115,7 @@ class GameState(QObject):
         self.current_player_index = 1 - self.current_player_index
         cells_to_reset = self.available_cells + self.cells_in_route
         self.update_move_route(move)
+        player.update_move_number()
         player.reset_move()
         return move, cells_to_reset
 
@@ -126,6 +127,7 @@ class GameState(QObject):
         self.current_player_index = 1 - self.current_player_index
         cells_to_reset = self.available_cells + self.cells_in_route
         self.update_move_route(move)
+        player.update_move_number()
         self.player_finish_move.emit(move, cells_to_reset, player.get_player_type())
         player.reset_move()
 
@@ -143,6 +145,7 @@ class GameState(QObject):
     def start_new_game(self):
         self.init_board()
         self.players[1 - self.current_player_index].update_score()
+        self.reset_players_move_numbers()
         self.current_player_index = 0
         self.game_number += 1
         self.game_in_progress = True
@@ -175,6 +178,10 @@ class GameState(QObject):
 
     def get_route_of_last_move(self):
         return self.cells_in_route
+
+    def reset_players_move_numbers(self):
+        for player in self.players:
+            player.reset_move_number()
 
     def update_move_route(self, move):
         self.cells_in_route.clear()

@@ -90,6 +90,9 @@ class GameWindow(BackgroundWindow):
         self.winning_text.setText("")
         self.play_again_text.setText("")
 
+    def update_move_number(self, players_data):
+        self.score.update_scores(players_data)
+
     def create_main_layout(self):
         central_widget = QWidget(self)
         self.setCentralWidget(central_widget)

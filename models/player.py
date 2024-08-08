@@ -88,6 +88,7 @@ class Player:
         self.piece_type = piece_type
         self.piece_path = piece_path
         self.score = 0
+        self.move_num = 0
         self.positions = []
         self.move = { "from": None, "to": None, "waiting_time": 0}
 
@@ -113,6 +114,9 @@ class Player:
     def get_score(self):
         return self.score
 
+    def get_move_number(self):
+        return self.move_num
+
     def get_positions(self):
         return self.positions
 
@@ -126,6 +130,15 @@ class Player:
     def update_score(self):
         self.score += 1
 
+    def update_move_number(self, increase=True):
+        if increase:
+            self.move_num += 1
+        else:
+            self.move_num -= 1
+
+    def reset_move_number(self):
+        self.move_num = 0
+        
     def is_move_assigned(self):
         return self.move["from"] is not None and self.move["to"] is not None
         

@@ -10,6 +10,7 @@ class ScoreModule(QWidget):
         self.type = player.get_player_type()
         self.difficulty = player.get_difficulty()
         self.score = player.get_score()
+        self.move_num = player.get_move_number()
         self.pic_path = player.get_piece_path()
         self.pixmap = QPixmap(self.pic_path)
         self.init_ui()
@@ -34,16 +35,20 @@ class ScoreModule(QWidget):
         self.name_label.setAlignment(Qt.AlignHCenter | Qt.AlignBottom)
         player_info_layout.addWidget(self.name_label)
 
-        # Player info text
+        # Player info and move number combined text
         if self.type == PlayerType.HUMAN:
-            player_info_text = "Human"
+            self.player_info_text = "Human"
         else:
-            player_info_text = f"AI, {self.difficulty}"
-        self.type_label = QLabel(player_info_text)
-        self.type_label.setStyleSheet("color: black;")
-        self.type_label.setFont(QFont('Arial', 10)) 
-        self.type_label.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
-        player_info_layout.addWidget(self.type_label)
+            self.player_info_text = f"AI, {self.difficulty}"
+
+        move_num_text = f"Move no. {self.move_num}"
+        combined_text = f"{self.player_info_text}<br>{move_num_text}"
+
+        self.player_info = QLabel(combined_text)
+        self.player_info.setStyleSheet("color: black;")
+        self.player_info.setFont(QFont('Arial', 10))
+        self.player_info.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
+        player_info_layout.addWidget(self.player_info)
 
         return player_info_layout
 
@@ -70,7 +75,10 @@ class ScoreModule(QWidget):
 
     def update_score(self, player):
         self.score = player.get_score()
+        self.move_num = player.get_move_number()
         self.score_label.setText(f"{self.score}")
+        move_num_text = f"Move no. {self.move_num}"
+        self.player_info.setText(f"{self.player_info_text}<br>{move_num_text}")
 
     def update_pixmap(self):
         if not self.pixmap.isNull():

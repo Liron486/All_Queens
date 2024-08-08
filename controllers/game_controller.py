@@ -70,6 +70,7 @@ class GameController:
 
     def __end_move_actions(self, move, cells_to_reset, player_type):
         self.view.reset_cells_view(cells_to_reset)
+        self.view.update_move_number(self.game_state.get_players())
         self.view.tag_cells_in_route(self.game_state.get_route_of_last_move())
         if player_type == PlayerType.HUMAN:
             self.view.player_make_move_signal.disconnect(self.handle_move_from_player)

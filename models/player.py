@@ -138,7 +138,10 @@ class Player:
 
     def reset_move_number(self):
         self.move_num = 0
-        
+
+    def clear_positions(self):
+        self.positions.clear()
+
     def is_move_assigned(self):
         return self.move["from"] is not None and self.move["to"] is not None
         
@@ -165,7 +168,7 @@ class HumanPlayer(Player):
         super().__init__(name, player_type, difficulty, piece_type, piece_path)
     
     def make_move(self):
-        return self.move
+        return copy.deepcopy(self.move)
 
 
 class AiPlayerEasy(Player):
@@ -175,15 +178,14 @@ class AiPlayerEasy(Player):
     def make_move(self, board, other_player_positions, board_size):
         from_move = None
         to_move = None
-        for i in range(0, board_size):
-            for j in range(0, board_size):
-                if board[i][j] == self.get_piece_type():
-                    moves = get_available_cells_to_move(board, i, j, board_size)
-                    if moves:
-                        to_move = random.choice(moves)
-                        self.set_from_move(i,j)
-                        self.set_to_move(to_move[0], to_move[1])
-                        break
+        moves = None
+        while not moves:
+            piece = random.choice(self.positions)
+            moves = get_available_cells_to_move(board, piece[0], piece[1], board_size)
+            if moves:
+                to_move = random.choice(moves)
+                self.set_from_move(piece[0],piece[1])
+                self.set_to_move(to_move[0], to_move[1])
         self.move["waiting_time"] = 1
         return copy.deepcopy(self.move)
                     

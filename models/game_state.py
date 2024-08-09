@@ -19,12 +19,12 @@ class GameState(QObject):
         self.sound = settings.get_setting('sound')
         self.difficulty = settings.get_setting('difficulty')
         self.is_edit_mode = settings.get_setting('is_edit_mode')
-        self.game_number = 1
+        self.game_number = 0
         self.current_player_index = 0
         self.available_cells = []
         self.cells_in_route = []
         self.game_in_progress = True
-        self.init_board()
+        self.start_new_game(True)
 
     def init_players_settings(self, settings: SettingsModel):
         names = settings.get_setting('names')
@@ -142,10 +142,9 @@ class GameState(QObject):
         player.reset_move()
         self.available_cells = []
     
-    def start_new_game(self):
+    def start_new_game(self, first_game=False):
+        self.update_players_data(first_game)
         self.init_board()
-        self.players[1 - self.current_player_index].update_score()
-        self.reset_players_move_numbers()
         self.current_player_index = 0
         self.game_number += 1
         self.game_in_progress = True
@@ -176,12 +175,18 @@ class GameState(QObject):
     def get_next_player_name(self):
         return self.players[1 - self.current_player_index].get_name()
 
+    def get_current_player_name(self):
+        return self.players[self.current_player_index].get_name()
+
     def get_route_of_last_move(self):
         return self.cells_in_route
 
-    def reset_players_move_numbers(self):
+    def update_players_data(self, first_game):
+        if not first_game:
+            self.players[1 - self.current_player_index].update_score()
         for player in self.players:
             player.reset_move_number()
+            player.clear_positions()
 
     def update_move_route(self, move):
         self.cells_in_route.clear()

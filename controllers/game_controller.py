@@ -1,6 +1,6 @@
 import time
 from PyQt5.QtWidgets import QApplication
-from PyQt5.QtCore import pyqtSignal
+from PyQt5.QtCore import pyqtSignal, QTimer
 from utils import PlayerType, resize_and_show_normal
 from models.game_state import GameState
 from logger import get_logger
@@ -34,13 +34,14 @@ class GameController:
             self.view.tag_available_cells(pressed_cell, available_cells)
 
     def execute_move(self, move, cells_to_reset, player_type):
-        self.logger.debug(f"player make the move {move['from']},{move['to']}")
-        self.logger.debug(f"waiting {move['waiting_time']}")
+        self.logger.debug(f"{self.game_state.get_current_player_name()} makes the move from {move['from']} to {move['to']}")
         QApplication.processEvents()
-        time.sleep(move['waiting_time'])
+        QTimer.singleShot(int(move['waiting_time'] * 1000), lambda: self.__continue_after_delay(move, cells_to_reset, player_type))
+
+    def __continue_after_delay(self, move, cells_to_reset, player_type):
         self.view.execute_move(move)
         self.__end_move_actions(move, cells_to_reset, player_type)
-
+        
         if self.game_state.check_for_winner(move):
             self.logger.debug(f"We Have a Winner!!! {self.game_state.get_next_player_name()} Wins!")
             self.view.display_winning_text(self.game_state.get_next_player_name())
@@ -48,7 +49,7 @@ class GameController:
             self.get_move_from_player()
 
     def handle_move_from_player(self, row, col):
-        self.logger.debug(f"player pressed on cell ({row},{col})")
+        self.logger.debug(f"{self.game_state.get_current_player_name()} pressed on cell ({row},{col})")
         self.game_state.check_move(row,col)
 
     def start_new_game(self):

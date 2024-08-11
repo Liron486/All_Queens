@@ -1,4 +1,3 @@
-import time
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtCore import pyqtSignal, QTimer
 from utils import PlayerType, resize_and_show_normal

@@ -1,3 +1,4 @@
+from ctypes import windll, c_void_p, c_int
 from PyQt5.QtWidgets import QLabel, QPushButton, QVBoxLayout, QWidget, QSizePolicy, QHBoxLayout, QApplication, QSpacerItem, QLineEdit
 from PyQt5.QtCore import pyqtSignal, Qt
 from PyQt5.QtGui import QFont
@@ -8,6 +9,10 @@ starting_layer_text = "Do you want to start? "
 default_difficulty_text = "Difficulty:"
 difficulty_text_first_player = "Difficulty of The First Player:"
 difficulty_text_second_player = "Difficulty of The Second Player:"
+
+def get_window_dpi(window):
+    hwnd = c_void_p(int(window.winId()))
+    return windll.user32.GetDpiForWindow(hwnd)
 
 def get_sender_layout(sender):
     parent = sender.parentWidget()
@@ -206,9 +211,10 @@ class SettingsWindow(BackgroundWindow):
         play_button_layout = main_layout_item.layout()
         play_button_item = play_button_layout.itemAt(0)
         play_button = play_button_item.widget()
-        button_width_size = self.width() * 0.05
-        button_height_size = self.height() * 0.03
-        font_size = int(min(button_width_size, button_height_size) * 0.2)
+        scaling_factor = self.get_button_scaling_factor()
+        button_width_size = self.width() * 0.05 * scaling_factor
+        button_height_size = self.height() * 0.03 * scaling_factor
+        font_size = int(min(button_width_size, button_height_size) * self.get_font_scaling_factor())
 
         play_button.setFixedSize(int(button_width_size), int(button_height_size))
         play_button.setFont(QFont('Arial', int(font_size)))
@@ -242,10 +248,11 @@ class SettingsWindow(BackgroundWindow):
 
         first_player_textbox_item = first_player_item.itemAt(1)
         first_player_textbox = first_player_textbox_item.widget()
-        box_width_size = self.width() * 0.085
-        box_height_size = self.height() * 0.025
+        scaling_factor = self.get_button_scaling_factor()
+        box_width_size = self.width() * 0.085 * scaling_factor
+        box_height_size = self.height() * 0.025 * scaling_factor
         first_player_textbox.setFixedSize(int(box_width_size), int(box_height_size))
-        textbox_font_size = int(box_height_size) * 0.22
+        textbox_font_size = int(box_height_size) * self.get_font_scaling_factor()
         first_player_textbox.setFont(QFont('Arial', int(textbox_font_size)))
 
         second_player_item = players_names_layout.itemAt(1)
@@ -264,9 +271,13 @@ class SettingsWindow(BackgroundWindow):
         label_item = num_players_layout.itemAt(0)
         self.update_label_size(label_item)
 
-        button_width_size = self.width() * 0.0405
-        button_height_size = self.height() * 0.027
-        font_size = int(min(button_width_size, button_height_size) * 0.2)
+        # Get DPI scaling factor using the helper function
+        scaling_factor = self.get_button_scaling_factor()
+
+        # Calculate button size
+        button_width_size = self.width() * 0.0405 * scaling_factor
+        button_height_size = self.height() * 0.027 * scaling_factor
+        font_size = int(min(button_width_size, button_height_size) * self.get_font_scaling_factor())
 
         button_layout_item = num_players_layout.itemAt(1)
         button_layout = button_layout_item.layout()
@@ -275,6 +286,7 @@ class SettingsWindow(BackgroundWindow):
             button = button_item.widget()
             button.setFixedSize(int(button_width_size), int(button_height_size))
             button.setFont(QFont('Arial', int(font_size)))
+
 
     def adjust_section_visibilty(self, num_real_players):
         # Show or hide the difficulty section based on the number of players selected
@@ -324,11 +336,9 @@ class SettingsWindow(BackgroundWindow):
 
     def update_label_size(self, label_item, is_title=False):
         label = label_item.widget()
-        font_size = min(self.width(), self.height()) * 0.006
-
-        if is_title:
-            font_size *= 1.5
-
+        width = self.width()
+        height = self.height()
+        font_size = min(width, height) * self.get_label_scaling_factor(is_title)
         label.setFont(QFont('Arial', int(font_size)))
         label.adjustSize()
 
@@ -342,3 +352,16 @@ class SettingsWindow(BackgroundWindow):
     def start_to_play(self):
         self.logger.debug("Play! pressed")
         self.play_clicked.emit()
+
+    def get_button_scaling_factor(self):
+        dpi = get_window_dpi(self)
+        return (1 / (dpi / 240.0)) ** 0.25
+
+    def get_font_scaling_factor(self):
+        dpi = get_window_dpi(self)
+        return ((1 / (dpi / 240.0)) ** 0.5) / 5
+
+    def get_label_scaling_factor(self, is_title):
+        dpi = get_window_dpi(self)
+        scaling_factor = 1.5 if is_title else 1  
+        return (((1 / (dpi / 240.0)) ** 0.85) / 167) * scaling_factor

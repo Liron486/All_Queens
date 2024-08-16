@@ -178,6 +178,7 @@ class GameState(QObject):
         self.game_number += 1
         self.game_in_progress = True
         self.cells_in_route.clear()
+        self.game_moves.clear()
 
     def is_game_in_progress(self):
         return self.game_in_progress

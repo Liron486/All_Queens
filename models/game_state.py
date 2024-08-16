@@ -20,9 +20,12 @@ class GameState(QObject):
         self.difficulty = settings.get_setting('difficulty')
         self.is_edit_mode = settings.get_setting('is_edit_mode')
         self.game_number = 0
+        self.moves_to_undo = 0
         self.current_player_index = 0
         self.available_cells = []
         self.cells_in_route = []
+        self.game_moves = []
+        self.move_in_progress = False
         self.game_in_progress = True
         self.start_new_game(True)
 
@@ -106,31 +109,57 @@ class GameState(QObject):
             self.game_in_progress = False
         return is_winner
 
+    def __apply_move(self, move, player, is_undo=False):
+        self.board[move["to"][0]][move["to"][1]] = self.board[move["from"][0]][move["from"][1]]
+        self.board[move["from"][0]][move["from"][1]] = PieceType.EMPTY   
+        self.current_player_index = 1 - self.current_player_index
+        cells_to_reset = self.available_cells + self.cells_in_route
+        player.update_move_number(not is_undo)
+        player.reset_move()
+        if is_undo:
+            self.update_move_route(self.game_moves[-1] if self.game_moves else None)
+        else:
+            self.update_move_route(move)
+        return cells_to_reset
+
     def get_ai_move(self):
         player = self.players[self.current_player_index]
         other_player = self.players[1 - self.current_player_index]
         move = player.make_move(self.board, other_player.get_positions(), self.board_size)
-        self.board[move["to"][0]][move["to"][1]] = self.board[move["from"][0]][move["from"][1]]
-        self.board[move["from"][0]][move["from"][1]] = PieceType.EMPTY
-        self.current_player_index = 1 - self.current_player_index
-        cells_to_reset = self.available_cells + self.cells_in_route
-        self.update_move_route(move)
-        player.update_move_number()
-        player.reset_move()
+        cells_to_reset = self.__apply_move(move, player)
+        self.game_moves.append(move)
         return move, cells_to_reset
 
     def handle_player_second_move(self, row, col, player, player_piece_type):
         player.set_to_move(row, col)
         move = player.make_move()
-        self.board[row][col] = self.board[move["from"][0]][move["from"][1]]
-        self.board[move["from"][0]][move["from"][1]] = PieceType.EMPTY
-        self.current_player_index = 1 - self.current_player_index
-        cells_to_reset = self.available_cells + self.cells_in_route
-        self.update_move_route(move)
-        player.update_move_number()
+        cells_to_reset = self.__apply_move(move, player)
+        self.game_moves.append(move)
         self.player_finish_move.emit(move, cells_to_reset, player.get_player_type())
-        player.reset_move()
 
+    def undo_last_move(self):
+        self.moves_to_undo -=1
+        if self.game_moves:
+            last_move = self.game_moves.pop()
+            last_move["time_to_wait"] = 1
+            last_move["from"], last_move["to"] = last_move["to"], last_move["from"]
+            player = self.players[1 - self.current_player_index]
+            player.set_from_move(last_move["from"][0], last_move["from"][1])
+            player.set_to_move(last_move["to"][0], last_move["to"][1])
+            cells_to_reset = self.__apply_move(last_move, player, True)
+            return last_move, cells_to_reset
+        return None, None
+
+    def player_wants_to_undo_last_move(self):
+        self.moves_to_undo += 1
+        self.game_in_progress = True
+        if not self.move_in_progress:
+            move, cells_to_reset = self.undo_last_move()
+            self.reset_player_move(self.players[self.current_player_index])
+            if move:
+                self.logger.debug(f"Undoing Move - {move['to']} to {move['from']}")
+                self.player_finish_move.emit(move, cells_to_reset, PlayerType.AI)
+                
     def handle_player_first_move(self, row, col, player, player_piece_type):
         player.set_from_move(row, col)
         available_cells = get_available_cells_to_move(self.board, row, col, self.board_size)
@@ -181,6 +210,9 @@ class GameState(QObject):
     def get_route_of_last_move(self):
         return self.cells_in_route
 
+    def is_initial_setup(self):
+        return len(self.game_moves) == 0
+
     def update_players_data(self, first_game):
         if not first_game:
             self.players[1 - self.current_player_index].update_score()
@@ -190,8 +222,9 @@ class GameState(QObject):
 
     def update_move_route(self, move):
         self.cells_in_route.clear()
-        self.cells_in_route.append(move["from"])
-        self.cells_in_route.append(move["to"])
+        if move:
+            self.cells_in_route.append(move["from"])
+            self.cells_in_route.append(move["to"])
 
     def get_all_cells_in_route(self, move):
         cells = []

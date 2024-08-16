@@ -15,8 +15,19 @@ class GameController:
     def setup_connections(self):
         self.view.exit_full_screen_signal.connect(self.exit_full_screen)
         self.view.key_pressed_signal.connect(self.start_new_game)
+        self.view.b_key_was_pressed_signal.connect(self.undo_last_move)
         self.game_state.piece_was_chosen.connect(self.piece_was_chosen)
         self.game_state.player_finish_move.connect(self.execute_move)
+
+    def undo_last_move(self):
+        state = self.game_state
+        player_type = self.game_state.get_currrent_player_type()
+        if not state.is_game_in_progress():
+            route_to_reset = state.get_route_of_last_move().copy()
+            self.view.start_new_game(state.get_board(), state.get_players(), route_to_reset, state.get_game_number())
+        elif player_type == PlayerType.HUMAN and not state.is_initial_setup():
+            self.view.player_make_move_signal.disconnect(self.handle_move_from_player)
+        state.player_wants_to_undo_last_move()
 
     def get_move_from_player(self):
         player_type = self.game_state.get_currrent_player_type()        

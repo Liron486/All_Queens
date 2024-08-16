@@ -9,6 +9,7 @@ from logger import get_logger
 class GameWindow(BackgroundWindow):
     exit_full_screen_signal = pyqtSignal()
     key_pressed_signal = pyqtSignal()
+    b_key_was_pressed_signal = pyqtSignal()
     player_make_move_signal = pyqtSignal(int, int)
 
     def __init__(self, players, game_number, board, parent=None):
@@ -69,8 +70,11 @@ class GameWindow(BackgroundWindow):
 
     def keyPressEvent(self, event):
         self.logger.debug(f"Key pressed - {event.key()}")
+        
         if event.key() == Qt.Key_Escape:
             self.exit_full_screen_signal.emit()
+        elif event.key() == Qt.Key_B:
+            self.b_key_was_pressed_signal.emit()
         else:
             self.key_pressed_signal.emit()
 

@@ -48,7 +48,7 @@ class Cell(QLabel):
         self.setStyleSheet(f"background-color: {self.cell_color}; border: {border_width} solid #f79b07;")
 
     def cell_in_route(self):
-        self.cell_color = self.adjust_color(self.cell_color)
+        self.cell_color = self.adjust_color(self.cell_default_color)
         self.setStyleSheet(f"background-color: {self.cell_color}; border: 1px solid black;")
 
     def adjust_color(self, hex_color):

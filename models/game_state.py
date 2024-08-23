@@ -5,8 +5,9 @@ from logger import get_logger
 from utils import PieceType, PlayerType, WHITE_PIECE_PATH, BLACK_PIECE_PATH
 
 class GameState(QObject):
-    piece_was_chosen = pyqtSignal(tuple, list, list)
-    player_finish_move = pyqtSignal(dict, PlayerType, bool)
+    piece_was_chosen_signal = pyqtSignal(tuple, list, list)
+    player_finish_move_signal = pyqtSignal(dict, PlayerType, bool)
+    invalid_move_signal = pyqtSignal()
 
     def __init__(self, settings: SettingsModel):
         super().__init__()
@@ -88,6 +89,8 @@ class GameState(QObject):
         if is_first_click:
             if cell_piece_type is player_piece_type:
                 self.handle_player_first_move(row, col, player, player_piece_type)
+            else:
+                self.invalid_move_signal.emit()
         else:
             if cell_piece_type is PieceType.EMPTY:
                 is_valid_cell = (row, col) in self.available_cells
@@ -95,10 +98,12 @@ class GameState(QObject):
                     self.handle_player_second_move(row, col, player, player_piece_type)
                 else:
                     self.reset_player_move(player)
+                    self.invalid_move_signal.emit()
             elif cell_piece_type is player_piece_type:
                 self.handle_player_first_move(row, col, player, player_piece_type)
             else:
                 self.reset_player_move(player)
+                self.invalid_move_signal.emit()
             
     def check_for_winner(self, last_move):
         row, col = last_move['to'][0], last_move['to'][1]
@@ -136,7 +141,7 @@ class GameState(QObject):
     def handle_player_second_move(self, row, col, player, player_piece_type):
         player.set_to_move(row, col)
         move = player.make_move()
-        self.player_finish_move.emit(move, player.get_player_type(), False)
+        self.player_finish_move_signal.emit(move, player.get_player_type(), False)
 
     def undo_last_move(self):
         if self.game_moves:
@@ -154,20 +159,20 @@ class GameState(QObject):
 
     def player_wants_to_undo_last_move(self):
         move = self.undo_last_move()
-        self.piece_was_chosen.emit((), self.available_cells, [])
+        self.piece_was_chosen_signal.emit((), self.available_cells, [])
         self.available_cells = []
         if move:
             self.logger.debug(f"Undoing Move - {move['to']} to {move['from']}")
-            self.player_finish_move.emit(move, PlayerType.AI, True)
+            self.player_finish_move_signal.emit(move, PlayerType.AI, True)
                 
     def handle_player_first_move(self, row, col, player, player_piece_type):
         player.set_from_move(row, col)
         available_cells = get_available_cells_to_move(self.board, row, col, self.board_size)
-        self.piece_was_chosen.emit((row, col), self.available_cells, available_cells)
+        self.piece_was_chosen_signal.emit((row, col), self.available_cells, available_cells)
         self.available_cells = available_cells + [(row, col)]
 
     def reset_player_move(self, player):
-        self.piece_was_chosen.emit((), self.available_cells, [])
+        self.piece_was_chosen_signal.emit((), self.available_cells, [])
         player.reset_move()
         self.available_cells = []
     

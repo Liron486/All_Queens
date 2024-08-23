@@ -1,24 +1,34 @@
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtCore import pyqtSignal, QTimer
+from PyQt5.QtMultimedia import QSound
 from utils import PlayerType, resize_and_show_normal
 from models.game_state import GameState
 from logger import get_logger
+
+WINNING_SOUND_PATH = 'resources/sounds/winning.wav'
+INVALID_MOVE_PATH = 'resources/sounds/invalid_move.wav'
 
 class GameController:
     def __init__(self, game_state, view, is_edit_mode=False):
         self.logger = get_logger(self.__class__.__name__)
         self.game_state = game_state
-        self.view = view 
+        self.view = view
+        self.init_sounds()
         self.setup_connections()
         self.get_move_from_player()
         self.signal_connected = False
+
+    def init_sounds(self):
+        self.winning_sound = QSound(WINNING_SOUND_PATH)
+        self.invalid_move_sound = QSound(INVALID_MOVE_PATH)
 
     def setup_connections(self):
         self.view.exit_full_screen_signal.connect(self.exit_full_screen)
         self.view.key_pressed_signal.connect(self.start_new_game)
         self.view.b_key_was_pressed_signal.connect(self.undo_last_move)
-        self.game_state.piece_was_chosen.connect(self.piece_was_chosen)
-        self.game_state.player_finish_move.connect(self.execute_move)
+        self.game_state.invalid_move_signal.connect(lambda: self.invalid_move_sound.play())
+        self.game_state.piece_was_chosen_signal.connect(self.piece_was_chosen_signal)
+        self.game_state.player_finish_move_signal.connect(self.execute_move)
 
     def undo_last_move(self):
         state = self.game_state
@@ -40,7 +50,7 @@ class GameController:
             move = self.game_state.get_ai_move()
             self.execute_move(move, player_type)
 
-    def piece_was_chosen(self, pressed_cell, cells_to_reset, available_cells):
+    def piece_was_chosen_signal(self, pressed_cell, cells_to_reset, available_cells):
         self.view.reset_cells_view(cells_to_reset)
         self.view.tag_cells_in_route(self.game_state.get_route_of_last_move())
         if pressed_cell:
@@ -63,6 +73,7 @@ class GameController:
         if self.game_state.check_for_winner(move):
             self.logger.debug(f"We Have a Winner!!! {self.game_state.get_next_player_name()} Wins!")
             self.view.display_winning_text(self.game_state.get_next_player_name())
+            self.winning_sound.play()
         else:
             self.get_move_from_player() 
 

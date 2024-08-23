@@ -58,7 +58,7 @@ class Cell(QLabel):
             r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
             
             if r > 127:
-                # Increase r and g by 40% and decrease b by 20%
+                # Increase r by 50%, g by 40% and decrease b by 20%
                 r = min(255, int(r * 1.5))
                 g = min(255, int(g * 1.4))
                 b = max(0, int(b * 0.8))

@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QLabel, QSizePolicy, QVBoxLayout
+from PyQt5.QtWidgets import QLabel, QSizePolicy, QVBoxLayout, QApplication
 from PyQt5.QtCore import pyqtSignal, Qt
 from PyQt5.QtGui import QPixmap
 from utils import PieceType, BLACK_PIECE_PATH, WHITE_PIECE_PATH
@@ -44,7 +44,8 @@ class Cell(QLabel):
         self.setStyleSheet(f"background-color: {self.cell_color}; border: 1px solid black;")
 
     def cell_available(self):
-        self.setStyleSheet(f"background-color: {self.cell_color}; border: 3px solid #f79b07;")
+        border_width = self.get_scaled_border_width()
+        self.setStyleSheet(f"background-color: {self.cell_color}; border: {border_width} solid #f79b07;")
 
     def cell_in_route(self):
         self.cell_color = self.adjust_color(self.cell_color)
@@ -73,6 +74,12 @@ class Cell(QLabel):
         else:
             raise ValueError("Provided color is not a valid hex string")
 
+    def get_scaled_border_width(self):
+        app = QApplication.instance() or QApplication([])
+        screen = app.primaryScreen()
+        logical_dpi = screen.logicalDotsPerInch()
+        scaling_factor = ((logical_dpi / 240) ** 0.1) * 0.7
+        return int(3 * scaling_factor)
 
     def update_cell(self):
         if self.piece == PieceType.WHITE:

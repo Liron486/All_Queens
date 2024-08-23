@@ -6,7 +6,7 @@ from utils import PieceType, PlayerType, WHITE_PIECE_PATH, BLACK_PIECE_PATH
 
 class GameState(QObject):
     piece_was_chosen = pyqtSignal(tuple, list, list)
-    player_finish_move = pyqtSignal(dict, list, PlayerType)
+    player_finish_move = pyqtSignal(dict, PlayerType, bool)
 
     def __init__(self, settings: SettingsModel):
         super().__init__()
@@ -20,13 +20,12 @@ class GameState(QObject):
         self.difficulty = settings.get_setting('difficulty')
         self.is_edit_mode = settings.get_setting('is_edit_mode')
         self.game_number = 0
-        self.moves_to_undo = 0
         self.current_player_index = 0
         self.available_cells = []
         self.cells_in_route = []
         self.game_moves = []
-        self.move_in_progress = False
         self.game_in_progress = True
+        self.abort_last_move = 0
         self.start_new_game(True)
 
     def init_players_settings(self, settings: SettingsModel):
@@ -109,56 +108,57 @@ class GameState(QObject):
             self.game_in_progress = False
         return is_winner
 
-    def __apply_move(self, move, player, is_undo=False):
+    def apply_move(self, move, is_undo=False):
+        self.game_in_progress = True
         self.board[move["to"][0]][move["to"][1]] = self.board[move["from"][0]][move["from"][1]]
         self.board[move["from"][0]][move["from"][1]] = PieceType.EMPTY   
-        self.current_player_index = 1 - self.current_player_index
         cells_to_reset = self.available_cells + self.cells_in_route
-        player.update_move_number(not is_undo)
-        player.reset_move()
+
         if is_undo:
+            player = self.players[1 - self.current_player_index]
             self.update_move_route(self.game_moves[-1] if self.game_moves else None)
         else:
+            player = self.players[self.current_player_index]
             self.update_move_route(move)
+            self.game_moves.append(move)
+
+        self.current_player_index = 1 - self.current_player_index
+        player.update_move_number(not is_undo)
+        player.reset_move()
         return cells_to_reset
 
     def get_ai_move(self):
         player = self.players[self.current_player_index]
         other_player = self.players[1 - self.current_player_index]
         move = player.make_move(self.board, other_player.get_positions(), self.board_size)
-        cells_to_reset = self.__apply_move(move, player)
-        self.game_moves.append(move)
-        return move, cells_to_reset
+        return move
 
     def handle_player_second_move(self, row, col, player, player_piece_type):
         player.set_to_move(row, col)
         move = player.make_move()
-        cells_to_reset = self.__apply_move(move, player)
-        self.game_moves.append(move)
-        self.player_finish_move.emit(move, cells_to_reset, player.get_player_type())
+        self.player_finish_move.emit(move, player.get_player_type(), False)
 
     def undo_last_move(self):
-        self.moves_to_undo -=1
         if self.game_moves:
             last_move = self.game_moves.pop()
-            last_move["time_to_wait"] = 1
+            last_move["waiting_time"] = 0
             last_move["from"], last_move["to"] = last_move["to"], last_move["from"]
+            current_player = self.players[self.current_player_index]
+            if current_player.player_type == PlayerType.AI and self.game_in_progress:
+                self.abort_last_move += 1
             player = self.players[1 - self.current_player_index]
             player.set_from_move(last_move["from"][0], last_move["from"][1])
             player.set_to_move(last_move["to"][0], last_move["to"][1])
-            cells_to_reset = self.__apply_move(last_move, player, True)
-            return last_move, cells_to_reset
-        return None, None
+            return last_move
+        return None
 
     def player_wants_to_undo_last_move(self):
-        self.moves_to_undo += 1
-        self.game_in_progress = True
-        if not self.move_in_progress:
-            move, cells_to_reset = self.undo_last_move()
-            self.reset_player_move(self.players[self.current_player_index])
-            if move:
-                self.logger.debug(f"Undoing Move - {move['to']} to {move['from']}")
-                self.player_finish_move.emit(move, cells_to_reset, PlayerType.AI)
+        move = self.undo_last_move()
+        self.piece_was_chosen.emit((), self.available_cells, [])
+        self.available_cells = []
+        if move:
+            self.logger.debug(f"Undoing Move - {move['to']} to {move['from']}")
+            self.player_finish_move.emit(move, PlayerType.AI, True)
                 
     def handle_player_first_move(self, row, col, player, player_piece_type):
         player.set_from_move(row, col)
@@ -213,6 +213,12 @@ class GameState(QObject):
 
     def is_initial_setup(self):
         return len(self.game_moves) == 0
+
+    def abort_move(self):
+        self.abort_last_move -= 1
+    
+    def is_need_to_abort_move(self):
+        return self.abort_last_move > 0
 
     def update_players_data(self, first_game):
         if not first_game:

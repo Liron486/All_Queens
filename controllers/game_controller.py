@@ -91,7 +91,6 @@ class GameController:
             self.get_move_from_player()
 
     def show_full_screen(self):
-        self.view.show()
         self.view.showFullScreen()
 
     def exit_full_screen(self):

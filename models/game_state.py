@@ -26,6 +26,7 @@ class GameState(QObject):
         self.cells_in_route = []
         self.game_moves = []
         self.game_in_progress = True
+        self.found_winner = False
         self.abort_last_move = 0
         self.start_new_game(True)
 
@@ -104,17 +105,25 @@ class GameState(QObject):
             else:
                 self.reset_player_move(player)
                 self.invalid_move_signal.emit()
-            
+
+    def pause_game(self):
+        self.game_in_progress = not self.game_in_progress
+        player = self.players[self.current_player_index]
+        if player.player_type == PlayerType.AI and not self.game_in_progress and not self.found_winner:
+                print("abort")
+                self.abort_last_move += 1
+        return not self.game_in_progress
+
     def check_for_winner(self, last_move):
         row, col = last_move['to'][0], last_move['to'][1]
         piece_type = self.board[row][col]
         is_winner = check_if_move_wins(self.board, row, col, piece_type, self.board_size)
         if is_winner:
-            self.game_in_progress = False
+            self.found_winner = True
         return is_winner
 
     def apply_move(self, move, is_undo=False):
-        self.game_in_progress = True
+        self.found_winner = False
         self.board[move["to"][0]][move["to"][1]] = self.board[move["from"][0]][move["from"][1]]
         self.board[move["from"][0]][move["from"][1]] = PieceType.EMPTY   
         cells_to_reset = self.available_cells + self.cells_in_route
@@ -149,8 +158,10 @@ class GameState(QObject):
             last_move["waiting_time"] = 0
             last_move["from"], last_move["to"] = last_move["to"], last_move["from"]
             current_player = self.players[self.current_player_index]
-            if current_player.player_type == PlayerType.AI and self.game_in_progress:
+            if current_player.player_type == PlayerType.AI and not self.found_winner and self.game_in_progress:
                 self.abort_last_move += 1
+            if self.found_winner:
+                self.found_winner = False
             player = self.players[1 - self.current_player_index]
             player.set_from_move(last_move["from"][0], last_move["from"][1])
             player.set_to_move(last_move["to"][0], last_move["to"][1])
@@ -181,12 +192,15 @@ class GameState(QObject):
         self.init_board()
         self.current_player_index = 0
         self.game_number += 1
-        self.game_in_progress = True
+        self.found_winner = False
         self.cells_in_route.clear()
         self.game_moves.clear()
 
     def is_game_in_progress(self):
         return self.game_in_progress
+
+    def is_winner_found(self):
+        return self.found_winner
 
     def get_players(self):
         return self.players

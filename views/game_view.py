@@ -10,6 +10,7 @@ class GameWindow(BackgroundWindow):
     exit_full_screen_signal = pyqtSignal()
     key_pressed_signal = pyqtSignal()
     b_key_was_pressed_signal = pyqtSignal()
+    p_key_was_pressed_signal = pyqtSignal()
     player_make_move_signal = pyqtSignal(int, int)
 
     def __init__(self, players, game_number, board, parent=None):
@@ -43,6 +44,11 @@ class GameWindow(BackgroundWindow):
         self.winning_text.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         self.main_layout.addWidget(self.winning_text)
 
+        # Initialize the pause overlay
+        self.pause_overlay = QLabel(self)
+        self.pause_overlay.setStyleSheet("background-color: rgba(0, 0, 0, 50);")
+        self.pause_overlay.setVisible(False)  # Initially hidden
+
         # Create play again text component
         self.play_again_text = QLabel("")
         self.play_again_text.setStyleSheet("color: black;")
@@ -75,8 +81,16 @@ class GameWindow(BackgroundWindow):
             self.exit_full_screen_signal.emit()
         elif event.key() == Qt.Key_B:
             self.b_key_was_pressed_signal.emit()
+        elif event.key() == Qt.Key_P:
+            self.p_key_was_pressed_signal.emit()
         else:
             self.key_pressed_signal.emit()
+
+    def game_paused(self):
+        self.pause_overlay.setVisible(True)
+
+    def game_resumed(self):
+        self.pause_overlay.setVisible(False)
 
     def display_winning_text(self, winner):
         self.winning_text.setText(f"We Have A Winner! {winner} Wins!")
@@ -106,9 +120,9 @@ class GameWindow(BackgroundWindow):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        self.update_board_and_score_size()
+        self.resize_elements()
 
-    def update_board_and_score_size(self):
+    def resize_elements(self):
         window_width = self.width()
         window_height = self.height()
 
@@ -119,6 +133,8 @@ class GameWindow(BackgroundWindow):
         # Set the score width to match the board width and adjust height proportionally
         score_height = int(window_height * 0.2)
         self.score.setFixedSize(max_board_size, score_height)
+
+        self.pause_overlay.setFixedSize(window_width, window_height)
 
         
 

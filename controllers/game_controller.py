@@ -1,12 +1,12 @@
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtCore import pyqtSignal, QTimer
 from PyQt5.QtMultimedia import QSound
-from utils import PlayerType, resize_and_show_normal
+from utils import PlayerType, resize_and_show_normal, resource_path
 from models.game_state import GameState
 from logger import get_logger
 
-WINNING_SOUND_PATH = 'resources/sounds/winning.wav'
-INVALID_MOVE_SOUND_PATH = 'resources/sounds/invalid_move.wav'
+WINNING_SOUND_PATH = resource_path('resources/sounds/winning.wav')
+INVALID_MOVE_SOUND_PATH = resource_path('resources/sounds/invalid_move.wav')
 
 class GameController:
     def __init__(self, game_state, view, is_edit_mode=False):

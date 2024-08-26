@@ -45,7 +45,7 @@ class GameController:
 
     def undo_last_move(self):
         state = self.game_state
-        player_type = self.game_state.get_currrent_player_type()
+        player_type = self.game_state.get_current_player_type()
         if state.is_winner_found():
             route_to_reset = state.get_route_of_last_move().copy()
             self.view.start_new_game(state.get_board(), state.get_players(), route_to_reset, state.get_game_number())
@@ -55,7 +55,7 @@ class GameController:
         state.player_wants_to_undo_last_move()
 
     def get_move_from_player(self):
-        player_type = self.game_state.get_currrent_player_type()
+        player_type = self.game_state.get_current_player_type()
         if player_type is PlayerType.HUMAN:
             self.view.player_make_move_signal.connect(self.handle_move_from_player)
             self.signal_connected = True
@@ -118,6 +118,6 @@ class GameController:
         self.view.reset_cells_view(cells_to_reset)
         self.view.update_move_number(self.game_state.get_players())
         self.view.tag_cells_in_route(self.game_state.get_route_of_last_move())
-        if player_type == PlayerType.HUMAN:
+        if player_type is PlayerType.HUMAN:
             self.view.player_make_move_signal.disconnect(self.handle_move_from_player)
             self.signal_connected = False

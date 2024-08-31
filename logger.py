@@ -2,6 +2,11 @@ import logging
 import sys
 
 def setup_logger():
+    """
+    Configures the logging settings for the application. The logging behavior 
+    is adjusted based on whether the application is running as a PyInstaller 
+    bundle or in a standard Python environment.
+    """
     if getattr(sys, 'frozen', False):
         # The application is running as a PyInstaller bundle
         logging.basicConfig(
@@ -20,4 +25,13 @@ def setup_logger():
         )
 
 def get_logger(name):
+    """
+    Retrieves a logger with the specified name.
+
+    Args:
+        name (str): The name of the logger to retrieve.
+
+    Returns:
+        logging.Logger: The configured logger instance.
+    """
     return logging.getLogger(name)

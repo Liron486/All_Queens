@@ -4,18 +4,102 @@ from PyQt5.QtGui import QPixmap
 from utils import PieceType, BLACK_PIECE_PATH, WHITE_PIECE_PATH
 
 class Cell(QLabel):
-    clicked = pyqtSignal(int, int)  # Signal to emit when the cell is clicked
+    """
+    Represents a single cell on a board, handling its appearance, interactions,
+    and the piece it contains.
+    """
+    
+    clicked = pyqtSignal(int, int)  # Signal emitted when the cell is clicked
 
     def __init__(self, row, col, color, parent=None):
+        """
+        Initializes the Cell with the given row, column, and background color.
+
+        Args:
+            row (int): The row index of the cell.
+            col (int): The column index of the cell.
+            color (str): The default background color of the cell.
+            parent (QWidget, optional): The parent widget, if any.
+        """
         super().__init__(parent)
         self.row = row
         self.col = col
         self.cell_default_color = color
         self.cell_color = color
         self.piece = PieceType.EMPTY  # No piece initially
-        self.init_ui()
+        self._init_ui()
 
-    def init_ui(self):
+    def set_cell_content(self, piece_type):
+        """
+        Sets the content of the cell, which determines the type of piece it holds.
+
+        Args:
+            piece_type (PieceType): The type of piece to place in the cell.
+        """
+        self.piece = piece_type
+        self._update_cell()
+
+    def get_piece_type(self):
+        """
+        Retrieves the type of piece currently in the cell.
+
+        Returns:
+            PieceType: The type of piece in the cell.
+        """
+        return self.piece
+
+    def reset_cell(self):
+        """
+        Resets the cell to its default state, including color and border.
+        """
+        self.cell_color = self.cell_default_color
+        self.setStyleSheet(f"background-color: {self.cell_color}; border: 1px solid black;")
+    
+    def cell_pressed(self):
+        """
+        Changes the cell's appearance to indicate it has been pressed.
+        """
+        self.cell_color = "#d9f4fc"
+        self.setStyleSheet(f"background-color: {self.cell_color}; border: 1px solid black;")
+
+    def cell_available(self):
+        """
+        Highlights the cell to indicate it is available for a move.
+        """
+        border_width = self._get_scaled_border_width()
+        self.setStyleSheet(f"background-color: {self.cell_color}; border: {border_width}px solid #f79b07;")
+
+    def cell_in_route(self):
+        """
+        Changes the cell's color to indicate it is part of a route.
+        """
+        self.cell_color = self._adjust_color(self.cell_default_color)
+        self.setStyleSheet(f"background-color: {self.cell_color}; border: 1px solid black;")
+
+    def mousePressEvent(self, event):
+        """
+        Handles the mouse press event, emitting the clicked signal if the left button is pressed.
+
+        Args:
+            event (QMouseEvent): The mouse event.
+        """
+        if event.button() == Qt.LeftButton:
+            self.clicked.emit(self.row, self.col)  # Emit the clicked signal with row and column
+
+    def resizeEvent(self, event):
+        """
+        Handles the resize event, updating the cell content to fit the new size.
+
+        Args:
+            event (QResizeEvent): The resize event.
+        """
+        super().resizeEvent(event)
+        self._update_cell()
+
+    def _init_ui(self):
+        """
+        Initializes the UI for the cell, including setting up the layout and image label.
+        """
         self.reset_cell()
         self.setAlignment(Qt.AlignCenter)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
@@ -31,27 +115,33 @@ class Cell(QLabel):
         layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(layout)
 
-    def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            self.clicked.emit(self.row, self.col)  # Emit the clicked signal with row and column
+    def _update_cell(self):
+        """
+        Updates the cell's content by adjusting the piece image to the current size of the cell.
+        """
+        if self.piece == PieceType.WHITE:
+            pixmap = QPixmap(WHITE_PIECE_PATH)
+        elif self.piece == PieceType.BLACK:
+            pixmap = QPixmap(BLACK_PIECE_PATH)
+        else:
+            pixmap = None
 
-    def reset_cell(self):
-        self.cell_color = self.cell_default_color
-        self.setStyleSheet(f"background-color: {self.cell_color}; border: 1px solid black;")
-    
-    def cell_pressed(self):
-        self.cell_color = "#d9f4fc"
-        self.setStyleSheet(f"background-color: {self.cell_color}; border: 1px solid black;")
+        if pixmap:
+            scaled_pixmap = pixmap.scaled(self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            self.image_label.setPixmap(scaled_pixmap)
+        else:
+            self.image_label.clear()
 
-    def cell_available(self):
-        border_width = self.get_scaled_border_width()
-        self.setStyleSheet(f"background-color: {self.cell_color}; border: {border_width} solid #f79b07;")
+    def _adjust_color(self, hex_color):
+        """
+        Adjusts the given color to create a visually distinct variation.
 
-    def cell_in_route(self):
-        self.cell_color = self.adjust_color(self.cell_default_color)
-        self.setStyleSheet(f"background-color: {self.cell_color}; border: 1px solid black;")
+        Args:
+            hex_color (str): The color in hex format.
 
-    def adjust_color(self, hex_color):
+        Returns:
+            str: The adjusted color in hex format.
+        """
         if isinstance(hex_color, str):
             # Convert hex color to RGB
             hex_color = hex_color.lstrip('#')
@@ -74,34 +164,15 @@ class Cell(QLabel):
         else:
             raise ValueError("Provided color is not a valid hex string")
 
-    def get_scaled_border_width(self):
+    def _get_scaled_border_width(self):
+        """
+        Calculates a scaled border width based on the screen's DPI.
+
+        Returns:
+            int: The scaled border width in pixels.
+        """
         app = QApplication.instance() or QApplication([])
         screen = app.primaryScreen()
         logical_dpi = screen.logicalDotsPerInch()
         scaling_factor = ((logical_dpi / 240) ** 0.1) * 0.7
         return int(3 * scaling_factor)
-
-    def update_cell(self):
-        if self.piece == PieceType.WHITE:
-            pixmap = QPixmap(WHITE_PIECE_PATH)
-        elif self.piece == PieceType.BLACK:
-            pixmap = QPixmap(BLACK_PIECE_PATH)
-        else:
-            pixmap = None
-
-        if pixmap:
-            scaled_pixmap = pixmap.scaled(self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
-            self.image_label.setPixmap(scaled_pixmap)
-        else:
-            self.image_label.clear()
-
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        self.update_cell()
-
-    def set_cell_content(self, piece_type):
-        self.piece = piece_type
-        self.update_cell()
-
-    def get_piece_type(self):
-        return self.piece

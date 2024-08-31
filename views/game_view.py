@@ -3,7 +3,7 @@ from PyQt5.QtCore import pyqtSignal, Qt
 from PyQt5.QtGui import QFont
 from views.board import Board
 from views.score import Score
-from utils import BackgroundWindow, PieceType, resource_path
+from utils import BackgroundWindow, PieceType, resource_path, DEFAULT_FONT
 from logger import get_logger
 
 GAME_BACKGROUND_IMAGE_PATH = resource_path('resources/images/game_background.png')
@@ -190,7 +190,7 @@ class GameWindow(BackgroundWindow):
         # Create winning text component
         self.winning_text = QLabel("")
         self.winning_text.setStyleSheet("color: black; font-weight: bold;")
-        self.winning_text.setFont(QFont('Arial', 18))
+        self.winning_text.setFont(QFont(DEFAULT_FONT, 18))
         self.winning_text.setAlignment(Qt.AlignCenter)
         self.winning_text.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         self.main_layout.addWidget(self.winning_text)
@@ -203,7 +203,7 @@ class GameWindow(BackgroundWindow):
         # Create play again text component
         self.play_again_text = QLabel("")
         self.play_again_text.setStyleSheet("color: black;")
-        self.play_again_text.setFont(QFont('Arial', 10))
+        self.play_again_text.setFont(QFont(DEFAULT_FONT, 10))
         self.play_again_text.setAlignment(Qt.AlignCenter)
         self.play_again_text.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         self.main_layout.addWidget(self.play_again_text)

@@ -8,6 +8,9 @@ from enum import Enum
 # Install command for PyInstaller:
 # pyinstaller --onefile --windowed --name "4Queens" --add-data "resources/images/*.png;resources/images" --add-data "resources/sounds/*.wav;resources/sounds" main.py
 
+# Constants
+DEFAULT_FONT = 'Arial'
+
 def resource_path(relative_path):
     """
     Get the absolute path to the resource, works for development and for PyInstaller.

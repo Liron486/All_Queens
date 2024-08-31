@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSizePolicy
 from PyQt5.QtGui import QPixmap, QPalette, QFont
 from PyQt5.QtCore import Qt
-from utils import create_spacer_widget, PlayerType
+from utils import create_spacer_widget, PlayerType, DEFAULT_FONT
 
 class ScoreModule(QWidget):
     """
@@ -86,7 +86,7 @@ class ScoreModule(QWidget):
         # Player name label
         self.name_label = QLabel(self.player_name)
         self.name_label.setStyleSheet("color: black; font-weight: bold;")
-        self.name_label.setFont(QFont('Arial', 13))
+        self.name_label.setFont(QFont(DEFAULT_FONT, 13))
         self.name_label.setAlignment(Qt.AlignHCenter | Qt.AlignBottom)
         player_info_layout.addWidget(self.name_label)
 
@@ -101,7 +101,7 @@ class ScoreModule(QWidget):
 
         self.player_info = QLabel(combined_text)
         self.player_info.setStyleSheet("color: black;")
-        self.player_info.setFont(QFont('Arial', 10))
+        self.player_info.setFont(QFont(DEFAULT_FONT, 10))
         self.player_info.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
         player_info_layout.addWidget(self.player_info)
 
@@ -128,7 +128,7 @@ class ScoreModule(QWidget):
         """
         self.score_label = QLabel(f"{self.score}")
         self.score_label.setStyleSheet("color: black; font-weight: bold;")
-        self.score_label.setFont(QFont('Arial', 16)) 
+        self.score_label.setFont(QFont(DEFAULT_FONT, 16)) 
         self.score_label.setAlignment(Qt.AlignCenter)
         return self.score_label
 
@@ -188,7 +188,7 @@ class GameNumberModule(QWidget):
         """
         self.game_number_label = QLabel("Game Number")
         self.game_number_label.setStyleSheet("color: black; font-weight: bold; text-decoration: underline;")
-        self.game_number_label.setFont(QFont('Arial', 14))
+        self.game_number_label.setFont(QFont(DEFAULT_FONT, 14))
         return self.game_number_label
 
     def _create_game_number_label(self):
@@ -201,7 +201,7 @@ class GameNumberModule(QWidget):
         self.game_number_display = QLabel(str(self.game_number))
         self.game_number_display.setStyleSheet("color: black; font-weight: bold;")
         self.game_number_display.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
-        self.game_number_display.setFont(QFont('Arial', 18))
+        self.game_number_display.setFont(QFont(DEFAULT_FONT, 18))
         return self.game_number_display
 
 

@@ -1,6 +1,6 @@
 from PyQt5.QtCore import pyqtSignal, QObject
 from models.settings_model import SettingsModel
-from models.player import Player, HumanPlayer, AiPlayerEasy, get_available_cells_to_move, check_if_move_wins
+from models.player import Player, HumanPlayer, AiPlayerEasy, AiPlayerMedium ,get_available_cells_to_move, check_if_move_wins
 from logger import get_logger
 from utils import PieceType, PlayerType, WHITE_PIECE_PATH, BLACK_PIECE_PATH
 
@@ -109,7 +109,7 @@ class GameState(QObject):
         """
         row, col = last_move['to'][0], last_move['to'][1]
         piece_type = self.board[row][col]
-        is_winner = check_if_move_wins(self.board, row, col, piece_type, self.board_size)
+        is_winner, _ = check_if_move_wins(self.board, row, col, piece_type, self.board_size)
         if is_winner:
             self.found_winner = True
         return is_winner
@@ -302,39 +302,6 @@ class GameState(QObject):
         """
         return self.abort_last_move > 0
 
-
-    def get_all_cells_in_route(self, move):
-        """
-        Gets all the cells in the route of the specified move.
-
-        Args:
-            move (dict): The move to calculate the route for.
-
-        Returns:
-            list: The cells in the route of the move.
-        """
-        cells = []
-        start_row, start_col = move['from']
-        end_row, end_col = move['to']
-
-        if start_row == end_row:  # Horizontal move
-            step = 1 if start_col < end_col else -1
-            for col in range(start_col, end_col + step, step):
-                cells.append((start_row, col))
-        elif start_col == end_col:  # Vertical move
-            step = 1 if start_row < end_row else -1
-            for row in range(start_row, end_row + step, step):
-                cells.append((row, start_col))
-        elif abs(start_row - end_row) == abs(start_col - end_col):  # Diagonal move
-            row_step = 1 if start_row < end_row else -1
-            col_step = 1 if start_col < end_col else -1
-            row, col = start_row, start_col
-            while row != end_row + row_step and col != end_col + col_step:
-                cells.append((row, col))
-                row += row_step
-                col += col_step
-        return cells
-
     def _init_players_settings(self, settings: SettingsModel):
         """
         Initializes the players based on the settings provided.
@@ -360,6 +327,7 @@ class GameState(QObject):
         self.players = [
             HumanPlayer(name, player_type, difficulty, piece_type, path) if player_type == PlayerType.HUMAN
             else AiPlayerEasy(name, player_type, difficulty, piece_type, path) if player_type == PlayerType.AI and difficulty == "Easy"
+            else AiPlayerMedium(name, player_type, difficulty, piece_type, path) if player_type == PlayerType.AI and difficulty == "Medium"
             else Player(name, player_type, difficulty, piece_type, path)
             for idx, (name, player_type, difficulty, piece_type, path) in enumerate(zip(names, player_types, difficulties, piece_types, pic_paths))
         ]

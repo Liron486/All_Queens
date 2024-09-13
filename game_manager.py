@@ -19,19 +19,19 @@ class GameManager:
         """
         Initializes the GameManager by setting up the application, models, views, and controllers.
         """
-        self.app = QApplication([])
-        self.logger = get_logger(self.__class__.__name__)
+        self._app = QApplication([])
+        self._logger = get_logger(self.__class__.__name__)
 
         # Models
-        self.settings_model = SettingsModel()
+        self._settings_model = SettingsModel()
 
         # Views
-        self.welcome_view = WelcomeWindow()
-        self.settings_view = SettingsWindow()
+        self._welcome_view = WelcomeWindow()
+        self._settings_view = SettingsWindow()
 
         # Controllers
-        self.settings_controller = SettingsController(self.settings_model, self.settings_view)
-        self.welcome_controller = WelcomeController(self.welcome_view)
+        self._settings_controller = SettingsController(self._settings_model, self._settings_view)
+        self._welcome_controller = WelcomeController(self._welcome_view)
 
         self._setup_connections()
 
@@ -40,32 +40,32 @@ class GameManager:
         Starts the game by initializing the game state, game view, and game controller.
         Hides the settings view and displays the game in full-screen mode.
         """
-        self.logger.debug("Starting the Game!")
-        self.game_state = GameState(self.settings_model)
-        self.game_view = GameWindow(self.game_state.get_players(), self.game_state.get_game_number(), self.game_state.get_board())
-        self.game_controller = GameController(self.game_state, self.game_view)
-        self.settings_view.hide()
-        self.game_controller.show_full_screen()
+        self._logger.debug("Starting the Game!")
+        self._game_state = GameState(self._settings_model)
+        self._game_view = GameWindow(self._game_state.players, self._game_state.game_number, self._game_state.board)
+        self._game_controller = GameController(self._game_state, self._game_view)
+        self._settings_view.hide()
+        self._game_controller.show_full_screen()
 
     def show_settings(self):
         """
         Switches from the welcome view to the settings view, displaying the settings window in full-screen mode.
         """
-        self.logger.debug("Switching to settings window")
-        self.welcome_controller.hide_screen()
-        self.settings_controller.show_full_screen()
+        self._logger.debug("Switching to settings window")
+        self._welcome_controller.hide_screen()
+        self._settings_controller.show_full_screen()
 
     def load_game(self):
         """
         Loads and starts the game by showing the welcome view and starting the application's event loop.
         """
-        self.logger.debug("Game Starts!")
-        self.welcome_controller.show_full_screen()
-        self.app.exec_()
+        self._logger.debug("Game Starts!")
+        self._welcome_controller.show_full_screen()
+        self._app.exec_()
 
     def _setup_connections(self):
         """
         Sets up the connections between controllers and their respective signals.
         """
-        self.welcome_controller.request_settings_view_signal.connect(self.show_settings)
-        self.settings_controller.start_game_signal.connect(self.start_game)
+        self._welcome_controller.request_settings_view_signal.connect(self.show_settings)
+        self._settings_controller.start_game_signal.connect(self.start_game)

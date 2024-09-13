@@ -21,8 +21,8 @@ class Board(QWidget):
             parent (QWidget, optional): The parent widget, if any.
         """
         super().__init__(parent)
-        self.board_size = len(board)
-        self.cells = {}
+        self._board_size = len(board)
+        self._cells = {}
         self._init_ui(board)
 
     def set_cell_content(self, cell, piece_type):
@@ -33,9 +33,9 @@ class Board(QWidget):
             cell (tuple): The coordinates of the cell (row, col).
             piece_type (PieceType): The type of piece to place in the cell.
         """
-        self.cells[cell].set_cell_content(piece_type)
+        self._cells[cell].cell_content = piece_type
 
-    def get_cell_piece_type(self, cell):
+    def get_cell_content(self, cell):
         """
         Retrieves the type of piece currently in a specific cell.
 
@@ -45,7 +45,7 @@ class Board(QWidget):
         Returns:
             PieceType: The type of piece in the cell.
         """
-        return self.cells[cell].get_piece_type()
+        return self._cells[cell].cell_content
 
     def reset_cells_view(self, cells_to_reset):
         """
@@ -55,7 +55,7 @@ class Board(QWidget):
             cells_to_reset (list): A list of cells (as tuples) to reset.
         """
         for cell in cells_to_reset:
-            self.cells[cell].reset_cell()
+            self._cells[cell].reset_cell()
 
     def tag_cells_in_route(self, cells_in_route):
         """
@@ -65,7 +65,7 @@ class Board(QWidget):
             cells_in_route (list): A list of cells (as tuples) that are part of the route.
         """
         for cell in cells_in_route:
-            self.cells[cell].cell_in_route()
+            self._cells[cell].cell_in_route()
 
     def tag_available_cells(self, pressed_cell, available_cells):
         """
@@ -75,9 +75,9 @@ class Board(QWidget):
             pressed_cell (tuple): The coordinates of the pressed cell.
             available_cells (list): A list of available cells (as tuples) for the move.
         """
-        self.cells[pressed_cell].cell_pressed()
+        self._cells[pressed_cell].cell_pressed()
         for cell in available_cells:
-            self.cells[cell].cell_available()
+            self._cells[cell].cell_available()
 
     def handle_cell_click(self, row, col):
         """
@@ -96,9 +96,9 @@ class Board(QWidget):
         Args:
             board (list): A 2D list representing the new setup of the board.
         """
-        for row in range(self.board_size):
-            for col in range(self.board_size):
-                self.cells[(row, col)].set_cell_content(board[row][col])
+        for row in range(self._board_size):
+            for col in range(self._board_size):
+                self._cells[(row, col)].cell_content = board[row][col]
 
     def _init_ui(self, board):
         """
@@ -116,10 +116,10 @@ class Board(QWidget):
         """
         Initializes the board background, creating cells with alternating colors.
         """
-        for row in range(self.board_size):
-            for col in range(self.board_size):
+        for row in range(self._board_size):
+            for col in range(self._board_size):
                 color = self.color1 if (row + col) % 2 == 0 else self.color2
                 cell = Cell(row, col, color)
                 cell.clicked.connect(self.handle_cell_click)
                 self.grid_layout.addWidget(cell, row, col)
-                self.cells[(row, col)] = cell
+                self._cells[(row, col)] = cell

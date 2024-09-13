@@ -18,29 +18,29 @@ class WelcomeController(QObject):
             view (QWidget): The view associated with the welcome screen.
         """
         super().__init__()
-        self.logger = get_logger(self.__class__.__name__)
-        self.view = view
+        self._logger = get_logger(self.__class__.__name__)
+        self._view = view
         self._setup_connections()
 
     def show_full_screen(self):
         """
         Displays the welcome view in full-screen mode.
         """
-        self.view.show()
-        self.view.showFullScreen()
+        self._view.show()
+        self._view.showFullScreen()
 
     def hide_screen(self):
         """
         Hides the welcome view.
         """
-        self.view.hide()
+        self._view.hide()
 
     def exit_full_screen(self):
         """
         Exits full-screen mode and resizes the view to its normal size.
         """
-        self.logger.debug("Exit full screen")
-        resize_and_show_normal(self.view)
+        self._logger.debug("Exit full screen")
+        resize_and_show_normal(self._view)
 
     def handle_switch_to_settings(self):
         """
@@ -53,5 +53,5 @@ class WelcomeController(QObject):
         """
         Sets up the signal-slot connections between the view and the controller.
         """
-        self.view.exit_full_screen_signal.connect(self.exit_full_screen)
-        self.view.switch_to_settings_signal.connect(self.handle_switch_to_settings)
+        self._view.exit_full_screen_signal.connect(self.exit_full_screen)
+        self._view.switch_to_settings_signal.connect(self.handle_switch_to_settings)

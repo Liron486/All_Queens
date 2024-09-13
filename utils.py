@@ -57,8 +57,8 @@ class BackgroundWindow(QMainWindow):
             parent (QWidget, optional): The parent widget, if any.
         """
         super().__init__(parent)
-        self.background_path = background_path
-        self.background_label = QLabel(self)
+        self._background_path = background_path
+        self._background_label = QLabel(self)
         self._set_background_image()
 
     def resizeEvent(self, event):
@@ -75,10 +75,10 @@ class BackgroundWindow(QMainWindow):
         """
         Sets the background image for the window, scaling it to fit the window size.
         """
-        pixmap = QPixmap(self.background_path)
-        self.background_label.setPixmap(pixmap.scaled(self.size(), Qt.IgnoreAspectRatio, Qt.SmoothTransformation))
-        self.background_label.setFixedSize(self.size())
-        self.background_label.lower()
+        pixmap = QPixmap(self._background_path)
+        self._background_label.setPixmap(pixmap.scaled(self.size(), Qt.IgnoreAspectRatio, Qt.SmoothTransformation))
+        self._background_label.setFixedSize(self.size())
+        self._background_label.lower()
 
 def create_spacer_widget(width, height):
     """

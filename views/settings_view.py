@@ -131,7 +131,7 @@ class SettingsWindow(BackgroundWindow):
         Initializes the SettingsWindow with the settings background image.
         """
         super().__init__(SETTINGS_BACKGROUND_IMAGE_PATH)
-        self.logger = get_logger(self.__class__.__name__)
+        self._logger = get_logger(self.__class__.__name__)
         self._init_ui()
 
     def _init_ui(self):
@@ -141,19 +141,19 @@ class SettingsWindow(BackgroundWindow):
         self.setWindowTitle('4 Queens')
         self._create_main_layout()
 
-        self.top_spacer = self._add_spacer()
+        self._top_spacer = self._add_spacer()
         self._create_title()
-        self.title_spacer = self._add_spacer()
+        self._title_spacer = self._add_spacer()
         self._create_buttom_list("Number of Real Players:", ["0", "1", "2"], self._change_number_of_players, 1)
-        self.line_spacer1 = self._add_spacer()
+        self._line_spacer1 = self._add_spacer()
         self._create_player_names_ui()
-        self.line_spacer2 = self._add_spacer()
+        self._line_spacer2 = self._add_spacer()
         self._create_buttom_list(default_difficulty_text, ["Easy", "Medium", "Hard"], self._change_difficulty1)
-        self.line_spacer3 = self._add_spacer()
+        self._line_spacer3 = self._add_spacer()
         self._create_buttom_list(difficulty_text_second_player, ["Easy", "Medium", "Hard"], self._change_difficulty2)
         self._create_buttom_list(starting_layer_text, ["Yes", "No"], self._change_starting_player)
         self._create_play_button()
-        self.end_spacer = self._add_spacer()
+        self._end_spacer = self._add_spacer()
         self._adjust_section_visibility("1")
 
     def _add_spacer(self):
@@ -164,7 +164,7 @@ class SettingsWindow(BackgroundWindow):
             QSpacerItem: The added spacer item.
         """
         spacer = QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Minimum)
-        self.main_layout.addItem(spacer)
+        self._main_layout.addItem(spacer)
         return spacer
 
     def _create_main_layout(self):
@@ -174,8 +174,8 @@ class SettingsWindow(BackgroundWindow):
         central_widget = QWidget(self)
         self.setCentralWidget(central_widget)
 
-        self.main_layout = QVBoxLayout(central_widget)
-        self.main_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+        self._main_layout = QVBoxLayout(central_widget)
+        self._main_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
 
     def _create_title(self):
         """
@@ -185,7 +185,7 @@ class SettingsWindow(BackgroundWindow):
         title_label.setStyleSheet("color: black; font-weight: bold; text-decoration: underline;")
         title_label.setAlignment(Qt.AlignCenter)
         title_label.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
-        self.main_layout.addWidget(title_label)
+        self._main_layout.addWidget(title_label)
 
     def _create_play_button(self):
         """
@@ -208,7 +208,7 @@ class SettingsWindow(BackgroundWindow):
         play_button.clicked.connect(self._start_to_play)
         button_layout.addWidget(play_button, alignment=Qt.AlignCenter)
 
-        self.main_layout.addLayout(button_layout)
+        self._main_layout.addLayout(button_layout)
 
     def _create_buttom_list(self, label_text, buttons_text, callback_function, clicked_idx=0):
         """
@@ -238,7 +238,7 @@ class SettingsWindow(BackgroundWindow):
                 click_button = button
 
         buttons_layout.addLayout(button_layout)
-        self.main_layout.addLayout(buttons_layout)
+        self._main_layout.addLayout(buttons_layout)
         click_button.click()
 
     def _create_player_names_ui(self):
@@ -251,7 +251,7 @@ class SettingsWindow(BackgroundWindow):
         self._add_player_name_input(player_names_layout, "First Player Name:", "Player1", 0)
         self._add_player_name_input(player_names_layout, "Second Player Name:", "Player2", 1)
 
-        self.main_layout.addLayout(player_names_layout)
+        self._main_layout.addLayout(player_names_layout)
 
     def _add_player_name_input(self, layout, label_text, input_attr_name, player_index):
         """
@@ -311,7 +311,7 @@ class SettingsWindow(BackgroundWindow):
         """
         Adjusts the size and font of the play button based on the window size.
         """
-        main_layout_item = self.main_layout.itemAt(PLAY_BUTTON_INDEX)
+        main_layout_item = self._main_layout.itemAt(PLAY_BUTTON_INDEX)
         play_button_layout = main_layout_item.layout()
         play_button_item = play_button_layout.itemAt(0)
         play_button = play_button_item.widget()
@@ -332,27 +332,27 @@ class SettingsWindow(BackgroundWindow):
         line_spacer_height = self.height() * LINE_SPACER_HEIGHT_RATIO
         end_spacer_height = self.height() * END_SPACER_HEIGHT_RATIO
 
-        self.top_spacer.changeSize(0, int(top_spacer_height), QSizePolicy.Minimum, QSizePolicy.Fixed)
-        self.title_spacer.changeSize(0, int(title_spacer_height), QSizePolicy.Minimum, QSizePolicy.Fixed)
-        self.line_spacer1.changeSize(0, int(line_spacer_height), QSizePolicy.Minimum, QSizePolicy.Fixed)
-        self.line_spacer2.changeSize(0, int(line_spacer_height), QSizePolicy.Minimum, QSizePolicy.Fixed)
-        self.line_spacer3.changeSize(0, int(line_spacer_height), QSizePolicy.Minimum, QSizePolicy.Fixed)
-        self.end_spacer.changeSize(0, int(end_spacer_height), QSizePolicy.Minimum, QSizePolicy.Fixed)
+        self._top_spacer.changeSize(0, int(top_spacer_height), QSizePolicy.Minimum, QSizePolicy.Fixed)
+        self._title_spacer.changeSize(0, int(title_spacer_height), QSizePolicy.Minimum, QSizePolicy.Fixed)
+        self._line_spacer1.changeSize(0, int(line_spacer_height), QSizePolicy.Minimum, QSizePolicy.Fixed)
+        self._line_spacer2.changeSize(0, int(line_spacer_height), QSizePolicy.Minimum, QSizePolicy.Fixed)
+        self._line_spacer3.changeSize(0, int(line_spacer_height), QSizePolicy.Minimum, QSizePolicy.Fixed)
+        self._end_spacer.changeSize(0, int(end_spacer_height), QSizePolicy.Minimum, QSizePolicy.Fixed)
 
-        self.main_layout.invalidate()  
+        self._main_layout.invalidate()  
 
     def _adjust_title(self):
         """
         Adjusts the title label based on the window size.
         """
-        title = self.main_layout.itemAt(TITLE_LABEL_INDEX)
+        title = self._main_layout.itemAt(TITLE_LABEL_INDEX)
         self._update_label_size(title, True)
 
     def _adjust_players_names(self):
         """
         Adjusts the player name labels and input fields based on the window size.
         """
-        main_layout_item = self.main_layout.itemAt(PLAYER_NAMES_INDEX)
+        main_layout_item = self._main_layout.itemAt(PLAYER_NAMES_INDEX)
         players_names_layout = main_layout_item.layout()
 
         first_player_item = players_names_layout.itemAt(0)
@@ -384,7 +384,7 @@ class SettingsWindow(BackgroundWindow):
         Args:
             main_layout_idx (int): The index of the layout item in the main layout.
         """
-        main_layout_item = self.main_layout.itemAt(main_layout_idx)
+        main_layout_item = self._main_layout.itemAt(main_layout_idx)
         num_players_layout = main_layout_item.layout()
 
         label_item = num_players_layout.itemAt(0)
@@ -420,7 +420,7 @@ class SettingsWindow(BackgroundWindow):
         ]
 
         for layout_idx, visibility_condition, text in layout_configs:
-            layout_item = self.main_layout.itemAt(layout_idx)
+            layout_item = self._main_layout.itemAt(layout_idx)
             if layout_item:
                 layout = layout_item.layout()
                 if layout:
@@ -481,7 +481,7 @@ class SettingsWindow(BackgroundWindow):
         Args:
             event (QKeyEvent): The key press event.
         """
-        self.logger.debug(f"Key pressed - {event.key()}")
+        self._logger.debug(f"Key pressed - {event.key()}")
         if event.key() == Qt.Key_Escape:
             self.exit_full_screen_signal.emit()
         if event.key() == Qt.Key_Enter or event.key() == Qt.Key_Return:
@@ -491,7 +491,7 @@ class SettingsWindow(BackgroundWindow):
         """
         Emits the play_clicked signal when the play button is pressed.
         """
-        self.logger.debug("Play! pressed")
+        self._logger.debug("Play! pressed")
         self.play_clicked.emit()
 
     def _get_button_scaling_factor(self):

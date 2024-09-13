@@ -18,7 +18,7 @@ class WelcomeWindow(BackgroundWindow):
         Initializes the WelcomeWindow with the background image and sets up the UI.
         """
         super().__init__(WELCOME_BACKGROUND_IMAGE_PATH)
-        self.logger = get_logger(self.__class__.__name__)
+        self._logger = get_logger(self.__class__.__name__)
         self._init_ui()
 
     def keyPressEvent(self, event):
@@ -28,7 +28,7 @@ class WelcomeWindow(BackgroundWindow):
         Args:
             event (QKeyEvent): The key press event.
         """
-        self.logger.debug(f"Key pressed - {event.key()}")
+        self._logger.debug(f"Key pressed - {event.key()}")
         if event.key() == Qt.Key_Escape:
             self.exit_full_screen_signal.emit()
         else:
@@ -41,7 +41,7 @@ class WelcomeWindow(BackgroundWindow):
         Args:
             event (QMouseEvent): The mouse press event.
         """
-        self.logger.debug("Mouse pressed")
+        self._logger.debug("Mouse pressed")
         self.switch_to_settings_signal.emit()
 
     def _init_ui(self):

@@ -21,23 +21,23 @@ class SettingsController(QObject):
             view (SettingsWindow): The view for the settings.
         """
         super().__init__()
-        self.logger = get_logger(self.__class__.__name__)
-        self.model = model
-        self.view = view
+        self._logger = get_logger(self.__class__.__name__)
+        self._model = model
+        self._view = view
         self._setup_connections()
 
     def show_full_screen(self):
         """
         Displays the settings view in full-screen mode.
         """
-        self.view.show()
-        self.view.showFullScreen()
+        self._view.show()
+        self._view.showFullScreen()
 
     def hide_screen(self):
         """
         Hides the settings view.
         """
-        self.view.hide()
+        self._view.hide()
 
     def start_game(self):
         """
@@ -49,8 +49,8 @@ class SettingsController(QObject):
         """
         Exits full-screen mode and resizes the view to its normal size.
         """
-        self.logger.debug("Exit full screen")
-        resize_and_show_normal(self.view)
+        self._logger.debug("Exit full screen")
+        resize_and_show_normal(self._view)
 
     def set_number_of_real_players(self, number):
         """
@@ -59,8 +59,8 @@ class SettingsController(QObject):
         Args:
             number (int): The number of real players.
         """
-        self.logger.debug(f"Number of real players changed to {number}")
-        self.model.set_setting("num_real_players", int(number))
+        self._logger.debug(f"Number of real players changed to {number}")
+        self._model.set_setting("num_real_players", int(number))
 
     def set_difficulty(self, difficulty, idx):
         """
@@ -71,13 +71,13 @@ class SettingsController(QObject):
             idx (int): The index of the player (0 for the first player, 1 for the second).
         """
         if idx == 0:
-            self.logger.debug(f"Difficulty changed to {difficulty}")
+            self._logger.debug(f"Difficulty changed to {difficulty}")
         else:
-            self.logger.debug(f"Difficulty of the second player changed to {difficulty}")
+            self._logger.debug(f"Difficulty of the second player changed to {difficulty}")
 
-        difficulty_settings = self.model.get_setting('difficulty')
+        difficulty_settings = self._model.get_setting('difficulty')
         difficulty_settings[idx] = difficulty
-        self.model.set_setting("difficulty", difficulty_settings)
+        self._model.set_setting("difficulty", difficulty_settings)
 
     def set_is_starting(self, start):
         """
@@ -87,8 +87,8 @@ class SettingsController(QObject):
             start (str): A string indicating whether the player wants to start ("Yes" or "No").
         """
         is_starting = start == "Yes"
-        self.logger.debug(f"Player changed the 'want to start' option to {is_starting}")
-        self.model.set_setting("is_starting", is_starting)
+        self._logger.debug(f"Player changed the 'want to start' option to {is_starting}")
+        self._model.set_setting("is_starting", is_starting)
 
     def set_name(self, new_name, idx):
         """
@@ -99,18 +99,18 @@ class SettingsController(QObject):
             idx (int): The index of the player (0 for the first player, 1 for the second).
         """
         position = "First" if idx == 0 else "Second"
-        self.logger.debug(f"{position} player name changed to {new_name}")
-        names_settings = self.model.get_setting('names')
+        self._logger.debug(f"{position} player name changed to {new_name}")
+        names_settings = self._model.get_setting('names')
         names_settings[idx] = new_name
-        self.model.set_setting('names', names_settings)
+        self._model.set_setting('names', names_settings)
 
     def _setup_connections(self):
         """
         Sets up the signal-slot connections between the view and the controller.
         """
-        self.view.exit_full_screen_signal.connect(self.exit_full_screen)
-        self.view.number_of_players_changed.connect(self.set_number_of_real_players)
-        self.view.difficulty_changed.connect(self.set_difficulty)
-        self.view.name_changed.connect(self.set_name)
-        self.view.starting_player_changed.connect(self.set_is_starting)
-        self.view.play_clicked.connect(self.start_game)
+        self._view.exit_full_screen_signal.connect(self.exit_full_screen)
+        self._view.number_of_players_changed.connect(self.set_number_of_real_players)
+        self._view.difficulty_changed.connect(self.set_difficulty)
+        self._view.name_changed.connect(self.set_name)
+        self._view.starting_player_changed.connect(self.set_is_starting)
+        self._view.play_clicked.connect(self.start_game)

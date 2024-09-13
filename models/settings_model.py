@@ -9,7 +9,6 @@ class SettingsModel:
         """
         self.settings = {
             'board_size': 5,
-            'sound': False,
             'difficulty': ['Easy', 'Easy'],
             'num_real_players': 1,
             'is_starting': True,

@@ -30,7 +30,7 @@ class GameWindow(BackgroundWindow):
             parent (QWidget, optional): The parent widget, if any.
         """
         super().__init__(GAME_BACKGROUND_IMAGE_PATH, parent)
-        self.logger = get_logger(self.__class__.__name__)
+        self._logger = get_logger(self.__class__.__name__)
         self._init_ui(players, game_number, board)
         self._setup_connections()
 
@@ -42,7 +42,7 @@ class GameWindow(BackgroundWindow):
             pressed_cell (tuple): The coordinates of the pressed cell.
             available_cells (list): List of available cells (as tuples) for the move.
         """
-        self.board.tag_available_cells(pressed_cell, available_cells)
+        self._board.tag_available_cells(pressed_cell, available_cells)
 
     def tag_cells_in_route(self, cells_in_route):
         """
@@ -51,7 +51,7 @@ class GameWindow(BackgroundWindow):
         Args:
             cells_in_route (list): List of cells (as tuples) that are part of the move route.
         """
-        self.board.tag_cells_in_route(cells_in_route)
+        self._board.tag_cells_in_route(cells_in_route)
 
     def reset_cells_view(self, cells_to_reset):
         """
@@ -60,7 +60,7 @@ class GameWindow(BackgroundWindow):
         Args:
             cells_to_reset (list): List of cells (as tuples) to reset.
         """
-        self.board.reset_cells_view(cells_to_reset)
+        self._board.reset_cells_view(cells_to_reset)
 
     def execute_move(self, move):
         """
@@ -69,9 +69,9 @@ class GameWindow(BackgroundWindow):
         Args:
             move (dict): A dictionary containing the move details with 'from' and 'to' coordinates.
         """
-        piece_type = self.board.get_cell_piece_type(move["from"])
-        self.board.set_cell_content(move["from"], PieceType.EMPTY)
-        self.board.set_cell_content(move["to"], piece_type)
+        piece_type = self._board.get_cell_content(move["from"])
+        self._board.set_cell_content(move["from"], PieceType.EMPTY)
+        self._board.set_cell_content(move["to"], piece_type)
 
     def player_make_move(self, row, col):
         """
@@ -90,7 +90,7 @@ class GameWindow(BackgroundWindow):
         Args:
             event (QKeyEvent): The key press event.
         """
-        self.logger.debug(f"Key pressed - {event.key()}")
+        self._logger.debug(f"Key pressed - {event.key()}")
         
         if event.key() == Qt.Key_Escape:
             self.exit_full_screen_signal.emit()
@@ -105,13 +105,13 @@ class GameWindow(BackgroundWindow):
         """
         Displays the pause overlay to indicate that the game is paused.
         """
-        self.pause_overlay.setVisible(True)
+        self._pause_overlay.setVisible(True)
 
     def game_resumed(self):
         """
         Hides the pause overlay to indicate that the game has resumed.
         """
-        self.pause_overlay.setVisible(False)
+        self._pause_overlay.setVisible(False)
 
     def display_winning_text(self, winner):
         """
@@ -120,8 +120,8 @@ class GameWindow(BackgroundWindow):
         Args:
             winner (str): The name of the winning player.
         """
-        self.winning_text.setText(f"We Have A Winner! {winner} Wins!")
-        self.play_again_text.setText("Press any key to start a new game")
+        self._winning_text.setText(f"We Have A Winner! {winner} Wins!")
+        self._play_again_text.setText("Press any key to start a new game")
 
     def mousePressEvent(self, event):
         """
@@ -144,11 +144,11 @@ class GameWindow(BackgroundWindow):
             game_number (int): The new game number.
         """
         self.reset_cells_view(cells_to_reset)
-        self.board.reset_board(board)
-        self.score.update_scores(players_data)
-        self.score.update_game_number(game_number)
-        self.winning_text.setText("")
-        self.play_again_text.setText("")
+        self._board.reset_board(board)
+        self._score.update_scores(players_data)
+        self._score.update_game_number(game_number)
+        self._winning_text.setText("")
+        self._play_again_text.setText("")
 
     def update_move_number(self, players_data):
         """
@@ -157,13 +157,13 @@ class GameWindow(BackgroundWindow):
         Args:
             players_data (list): The current player data.
         """
-        self.score.update_scores(players_data)
+        self._score.update_scores(players_data)
 
     def _setup_connections(self):
         """
         Sets up signal-slot connections for the board interactions.
         """
-        self.board.cell_clicked.connect(self.player_make_move)
+        self._board.cell_clicked.connect(self.player_make_move)
 
     def _init_ui(self, players, game_number, board):
         """
@@ -178,35 +178,35 @@ class GameWindow(BackgroundWindow):
         self._create_main_layout()
 
         # Create the score component
-        self.score = Score(players, game_number)
-        self.score.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self.main_layout.addWidget(self.score, alignment=Qt.AlignTop | Qt.AlignHCenter)
+        self._score = Score(players, game_number)
+        self._score.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self._main_layout.addWidget(self._score, alignment=Qt.AlignTop | Qt.AlignHCenter)
         
         # Create the board component
-        self.board = Board(board)
-        self.board.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.main_layout.addWidget(self.board, alignment=Qt.AlignCenter)
+        self._board = Board(board)
+        self._board.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self._main_layout.addWidget(self._board, alignment=Qt.AlignCenter)
 
         # Create winning text component
-        self.winning_text = QLabel("")
-        self.winning_text.setStyleSheet("color: black; font-weight: bold;")
-        self.winning_text.setFont(QFont(DEFAULT_FONT, 18))
-        self.winning_text.setAlignment(Qt.AlignCenter)
-        self.winning_text.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
-        self.main_layout.addWidget(self.winning_text)
+        self._winning_text = QLabel("")
+        self._winning_text.setStyleSheet("color: black; font-weight: bold;")
+        self._winning_text.setFont(QFont(DEFAULT_FONT, 18))
+        self._winning_text.setAlignment(Qt.AlignCenter)
+        self._winning_text.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        self._main_layout.addWidget(self._winning_text)
 
         # Initialize the pause overlay
-        self.pause_overlay = QLabel(self)
-        self.pause_overlay.setStyleSheet("background-color: rgba(0, 0, 0, 50);")
-        self.pause_overlay.setVisible(False)  # Initially hidden
+        self._pause_overlay = QLabel(self)
+        self._pause_overlay.setStyleSheet("background-color: rgba(0, 0, 0, 50);")
+        self._pause_overlay.setVisible(False)  # Initially hidden
 
         # Create play again text component
-        self.play_again_text = QLabel("")
-        self.play_again_text.setStyleSheet("color: black;")
-        self.play_again_text.setFont(QFont(DEFAULT_FONT, 10))
-        self.play_again_text.setAlignment(Qt.AlignCenter)
-        self.play_again_text.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
-        self.main_layout.addWidget(self.play_again_text)
+        self._play_again_text = QLabel("")
+        self._play_again_text.setStyleSheet("color: black;")
+        self._play_again_text.setFont(QFont(DEFAULT_FONT, 10))
+        self._play_again_text.setAlignment(Qt.AlignCenter)
+        self._play_again_text.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        self._main_layout.addWidget(self._play_again_text)
 
     def _create_main_layout(self):
         """
@@ -215,8 +215,8 @@ class GameWindow(BackgroundWindow):
         central_widget = QWidget(self)
         self.setCentralWidget(central_widget)
 
-        self.main_layout = QVBoxLayout(central_widget)
-        self.main_layout.setAlignment(Qt.AlignTop)
+        self._main_layout = QVBoxLayout(central_widget)
+        self._main_layout.setAlignment(Qt.AlignTop)
 
     def resizeEvent(self, event):
         """
@@ -237,10 +237,10 @@ class GameWindow(BackgroundWindow):
 
         # Calculate the maximum size for the board and score
         max_board_size = min(window_width * 0.85, (window_height * 0.85) - (window_height * 0.2))
-        self.board.setFixedSize(max_board_size, max_board_size)
+        self._board.setFixedSize(max_board_size, max_board_size)
 
         # Set the score width to match the board width and adjust height proportionally
         score_height = int(window_height * 0.2)
-        self.score.setFixedSize(max_board_size, score_height)
+        self._score.setFixedSize(max_board_size, score_height)
 
-        self.pause_overlay.setFixedSize(window_width, window_height)
+        self._pause_overlay.setFixedSize(window_width, window_height)

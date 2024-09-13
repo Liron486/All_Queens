@@ -220,15 +220,15 @@ class Player:
             piece_type (PieceType): The type of piece the player controls.
             piece_path (str): The path to the image of the piece.
         """
-        self.name = name
-        self.player_type = player_type
-        self.difficulty = difficulty
-        self.piece_type = piece_type
-        self.piece_path = piece_path
-        self.score = 0
-        self.move_num = 0
-        self.positions = []
-        self.move = {"from": None, "to": None, "waiting_time": 0}
+        self._name = name
+        self._player_type = player_type
+        self._difficulty = difficulty
+        self._piece_type = piece_type
+        self._piece_path = piece_path
+        self._score = 0
+        self._move_num = 0
+        self._positions = []
+        self._move = {"from": None, "to": None, "waiting_time": 0}
 
     def make_move(self, *args, **kwargs):
         """
@@ -236,29 +236,37 @@ class Player:
         """
         raise NotImplementedError("This method should be implemented by subclasses")
 
-    def get_name(self):
-        return self.name
-    
-    def get_player_type(self):
-        return self.player_type
+    @property
+    def name(self):
+        return self._name
 
-    def get_piece_type(self):
-        return self.piece_type
+    @property
+    def player_type(self):
+        return self._player_type
 
-    def get_difficulty(self):
-        return self.difficulty
+    @property
+    def piece_type(self):
+        return self._piece_type
 
-    def get_piece_path(self):
-        return self.piece_path
+    @property
+    def difficulty(self):
+        return self._difficulty
 
-    def get_score(self):
-        return self.score
+    @property
+    def piece_path(self):
+        return self._piece_path
 
-    def get_move_number(self):
-        return self.move_num
+    @property
+    def score(self):
+        return self._score
 
-    def get_positions(self):
-        return self.positions
+    @property
+    def move_number(self):
+        return self._move_num
+
+    @property
+    def positions(self):
+        return self._positions
 
     def init_positions(self, point):
         """
@@ -273,14 +281,14 @@ class Player:
         """
         Updates the player's positions after a move.
         """
-        self.positions.remove(self.move['from'])
-        self.positions.append(self.move['to'])
+        self.positions.remove(self._move['from'])
+        self.positions.append(self._move['to'])
 
     def update_score(self):
         """
         Increments the player's score.
         """
-        self.score += 1
+        self._score += 1
 
     def update_move_number(self, increase=True):
         """
@@ -290,15 +298,15 @@ class Player:
             increase (bool): Whether to increment or decrement the move number.
         """
         if increase:
-            self.move_num += 1
+            self._move_num += 1
         else:
-            self.move_num -= 1
+            self._move_num -= 1
 
     def reset_move_number(self):
         """
         Resets the player's move number to zero.
         """
-        self.move_num = 0
+        self._move_num = 0
 
     def clear_positions(self):
         """
@@ -313,7 +321,7 @@ class Player:
         Returns:
             bool: True if both from and to positions are assigned, False otherwise.
         """
-        return self.move["from"] is not None and self.move["to"] is not None
+        return self._move["from"] is not None and self._move["to"] is not None
 
     def is_from_assigned(self):
         """
@@ -322,7 +330,7 @@ class Player:
         Returns:
             bool: True if the 'from' position is assigned, False otherwise.
         """
-        return self.move["from"] is not None
+        return self._move["from"] is not None
 
     def set_from_move(self, row, col):
         """
@@ -332,7 +340,7 @@ class Player:
             row (int): The row index of the 'from' position.
             col (int): The column index of the 'from' position.
         """
-        self.move["from"] = (row, col)
+        self._move["from"] = (row, col)
     
     def set_to_move(self, row, col):
         """
@@ -342,7 +350,7 @@ class Player:
             row (int): The row index of the 'to' position.
             col (int): The column index of the 'to' position.
         """
-        self.move["to"] = (row, col)
+        self._move["to"] = (row, col)
 
     def set_move_waiting_time(self, time):
         """
@@ -351,7 +359,7 @@ class Player:
         Args:
             time (int): The waiting time for the move.
         """
-        self.move["waiting_time"] = time
+        self._move["waiting_time"] = time
 
     def reset_move(self):
         """
@@ -359,8 +367,8 @@ class Player:
         """
         if self.is_move_assigned():
             self.update_positions()
-            self.move["from"] = None
-            self.move["to"] = None
+            self._move["from"] = None
+            self._move["to"] = None
 
 class HumanPlayer(Player):
     """
@@ -386,7 +394,7 @@ class HumanPlayer(Player):
         Returns:
             dict: A deep copy of the move.
         """
-        return copy.deepcopy(self.move)
+        return copy.deepcopy(self._move)
 
 class AiPlayerEasy(Player):
     """
@@ -426,8 +434,8 @@ class AiPlayerEasy(Player):
                 to_move = random.choice(available_moves)
                 self.set_from_move(piece[0], piece[1])
                 self.set_to_move(to_move[0], to_move[1])
-        self.move["waiting_time"] = 1
-        return copy.deepcopy(self.move)
+        self._move["waiting_time"] = 1
+        return copy.deepcopy(self._move)
 
 class AiPlayerMedium(Player):
     def __init__(self, name, player_type, difficulty, piece_type, piece_path):
@@ -460,8 +468,8 @@ class AiPlayerMedium(Player):
         if not found_move:
             found_move = self._make_random_move(board, other_player_positions, board_size)
 
-        self.move["waiting_time"] = 1
-        return copy.deepcopy(self.move)
+        self._move["waiting_time"] = 1
+        return copy.deepcopy(self._move)
 
     def _attempt_winning_move(self, board, positions, piece_type, board_size):
         """

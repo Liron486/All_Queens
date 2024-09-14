@@ -44,22 +44,22 @@ def get_all_cells_in_route(from_move, to_move):
     return cells[::-1]  # Return the cells list in reverse order
 
 
-def get_available_cells_in_direction(board, row, col, row_step, col_step, max_size):
+def get_available_cells_in_direction(board, piece, row_step, col_step, max_size):
     """
     Returns a list of available cells in the specified direction until a non-empty cell is encountered.
 
     Args:
         board (list): The game board.
-        row (int): The starting row index.
-        col (int): The starting column index.
-        row_step (int): The row step to move in the direction.
-        col_step (int): The column step to move in the direction.
+        piece (tuple): The starting position of the piece as a tuple (row, column).
+        row_step (int): The row step to move in the specified direction.
+        col_step (int): The column step to move in the specified direction.
         max_size (int): The maximum size of the board.
 
     Returns:
-        list: A list of available cells in the specified direction.
+        list: A list of available cells in the specified direction as tuples (row, column).
     """
     available_cells = []
+    row, col = piece[0], piece[1]
     i, j = row + row_step, col + col_step
     while 0 <= i < max_size and 0 <= j < max_size:
         if board[i][j] is PieceType.EMPTY:
@@ -70,15 +70,14 @@ def get_available_cells_in_direction(board, row, col, row_step, col_step, max_si
             break
     return available_cells
 
-def check_consecutive_pieces_in_direction(board, row, col, piece_type, max_size, row_step, col_step):
+def check_consecutive_pieces_in_direction(board, move, piece_type, max_size, row_step, col_step):
     """
     Checks for consecutive pieces of a given type in a specific direction on the board, 
     starting from the given position and moving according to the provided row and column steps.
 
     Args:
         board (list): A 2D list representing the game board.
-        row (int): The starting row index on the board.
-        col (int): The starting column index on the board.
+        move (tuple): The starting position on the board as a tuple (row, column).
         piece_type (PieceType): The type of the piece to check for (e.g., white or black).
         max_size (int): The size of the board (number of rows/columns).
         row_step (int): The step increment for row movement (e.g., 1 for down, -1 for up, 0 for no row change).
@@ -93,6 +92,7 @@ def check_consecutive_pieces_in_direction(board, row, col, piece_type, max_size,
     if row_step == 0 and col_step == 0:
         return 0, consecutive_pieces
 
+    row, col = move[0], move[1]
     i, j = row + row_step, col + col_step
     while 0 <= i < max_size and 0 <= j < max_size:
         if board[i][j] == piece_type:
@@ -103,17 +103,16 @@ def check_consecutive_pieces_in_direction(board, row, col, piece_type, max_size,
             break
     return len(consecutive_pieces), consecutive_pieces
 
-
-def check_if_move_wins(board, row, col, piece_type, max_size):
+def check_if_move_wins(board, move, piece_type, max_size):
     """
-    Checks if the current move results in a win.
+    Checks if the current move results in a win by looking for consecutive pieces 
+    of the same type in all possible directions (horizontal, vertical, diagonal, and anti-diagonal).
 
     Args:
-        board (list): The game board.
-        row (int): The row index of the move.
-        col (int): The column index of the move.
+        board (list): The game board as a 2D list.
+        move (tuple): The position of the current move as a tuple (row, column).
         piece_type (PieceType): The type of the piece being moved.
-        max_size (int): The maximum size of the board.
+        max_size (int): The size of the board (number of rows/columns).
 
     Returns:
         tuple: (bool, list) 
@@ -122,7 +121,7 @@ def check_if_move_wins(board, row, col, piece_type, max_size):
     """
     # Helper function to combine results
     def check_and_collect(direction_func):
-        count, positions = direction_func(board, row, col, piece_type, max_size)
+        count, positions = direction_func(board, move, piece_type, max_size)
         return count, positions
 
     # Check horizontal
@@ -130,7 +129,7 @@ def check_if_move_wins(board, row, col, piece_type, max_size):
     consecutive_row_left, left_positions = check_and_collect(lambda *args: check_consecutive_pieces_in_direction(*args, 0, -1))
     total_consecutive_row = consecutive_row_right + consecutive_row_left + 1  # Include the current piece
     if total_consecutive_row >= WIN_CONDITION:
-        row_positions = right_positions + [(row, col)] + left_positions
+        row_positions = right_positions + [move] + left_positions
         return True, row_positions
 
     # Check vertical
@@ -138,7 +137,7 @@ def check_if_move_wins(board, row, col, piece_type, max_size):
     consecutive_col_up, up_positions = check_and_collect(lambda *args: check_consecutive_pieces_in_direction(*args, -1, 0))
     total_consecutive_col = consecutive_col_down + consecutive_col_up + 1  # Include the current piece
     if total_consecutive_col >= WIN_CONDITION:
-        col_positions = down_positions + [(row, col)] + up_positions
+        col_positions = down_positions + [move] + up_positions
         return True, col_positions
 
     # Check diagonal (top-left to bottom-right)
@@ -146,7 +145,7 @@ def check_if_move_wins(board, row, col, piece_type, max_size):
     consecutive_diag_bottom_left, bottom_left_positions = check_and_collect(lambda *args: check_consecutive_pieces_in_direction(*args, 1, -1))
     total_consecutive_diag = consecutive_diag_top_right + consecutive_diag_bottom_left + 1  # Include the current piece
     if total_consecutive_diag >= WIN_CONDITION:
-        diag_positions = top_right_positions + [(row, col)] + bottom_left_positions
+        diag_positions = top_right_positions + [move] + bottom_left_positions
         return True, diag_positions
 
     # Check anti-diagonal (top-right to bottom-left)
@@ -154,42 +153,40 @@ def check_if_move_wins(board, row, col, piece_type, max_size):
     consecutive_anti_diag_bottom_right, bottom_right_positions = check_and_collect(lambda *args: check_consecutive_pieces_in_direction(*args, 1, 1))
     total_consecutive_anti_diag = consecutive_anti_diag_top_left + consecutive_anti_diag_bottom_right + 1  # Include the current piece
     if total_consecutive_anti_diag >= WIN_CONDITION:
-        anti_diag_positions =  top_left_positions + [(row, col)] + bottom_right_positions
+        anti_diag_positions = top_left_positions + [move] + bottom_right_positions
         return True, anti_diag_positions
 
     return False, []
 
-
-def get_available_cells_to_move(board, row, col, max_size):
+def get_available_cells_to_move(board, piece, max_size):
     """
     Gets all available cells that a piece can move to from a specific position.
 
     Args:
-        board (list): The game board.
-        row (int): The row index of the current position.
-        col (int): The column index of the current position.
-        max_size (int): The maximum size of the board.
+        board (list): The game board as a 2D list.
+        piece (tuple): The current position of the piece as a tuple (row, column).
+        max_size (int): The size of the board (number of rows/columns).
 
     Returns:
-        list: A list of available cells where the piece can move.
+        list: A list of available cells where the piece can move, represented as tuples (row, column).
     """
     available_cells = []
 
     # Horizontal directions
-    available_cells.extend(get_available_cells_in_direction(board, row, col, 0, 1, max_size))  # Right
-    available_cells.extend(get_available_cells_in_direction(board, row, col, 0, -1, max_size))  # Left
+    available_cells.extend(get_available_cells_in_direction(board, piece, 0, 1, max_size))  # Right
+    available_cells.extend(get_available_cells_in_direction(board, piece, 0, -1, max_size))  # Left
 
     # Vertical directions
-    available_cells.extend(get_available_cells_in_direction(board, row, col, 1, 0, max_size))  # Down
-    available_cells.extend(get_available_cells_in_direction(board, row, col, -1, 0, max_size))  # Up
+    available_cells.extend(get_available_cells_in_direction(board, piece, 1, 0, max_size))  # Down
+    available_cells.extend(get_available_cells_in_direction(board, piece, -1, 0, max_size))  # Up
 
     # Diagonal directions
-    available_cells.extend(get_available_cells_in_direction(board, row, col, -1, 1, max_size))  # Top-right
-    available_cells.extend(get_available_cells_in_direction(board, row, col, 1, -1, max_size))  # Bottom-left
+    available_cells.extend(get_available_cells_in_direction(board, piece, -1, 1, max_size))  # Top-right
+    available_cells.extend(get_available_cells_in_direction(board, piece, 1, -1, max_size))  # Bottom-left
 
     # Anti-diagonal directions
-    available_cells.extend(get_available_cells_in_direction(board, row, col, -1, -1, max_size))  # Top-left
-    available_cells.extend(get_available_cells_in_direction(board, row, col, 1, 1, max_size))  # Bottom-right
+    available_cells.extend(get_available_cells_in_direction(board, piece, -1, -1, max_size))  # Top-left
+    available_cells.extend(get_available_cells_in_direction(board, piece, 1, 1, max_size))  # Bottom-right
 
     return available_cells
 
@@ -275,14 +272,14 @@ class Player:
         Args:
             point (tuple): The position to be initialized.
         """
-        self.positions.append(point)
+        self._positions.append(point)
 
     def update_positions(self):
         """
         Updates the player's positions after a move.
         """
-        self.positions.remove(self._move['from'])
-        self.positions.append(self._move['to'])
+        self._positions.remove(self._move['from'])
+        self._positions.append(self._move['to'])
 
     def update_score(self):
         """
@@ -312,7 +309,7 @@ class Player:
         """
         Clears the player's positions on the board.
         """
-        self.positions.clear()
+        self._positions.clear()
 
     def is_move_assigned(self):
         """
@@ -369,6 +366,23 @@ class Player:
             self.update_positions()
             self._move["from"] = None
             self._move["to"] = None
+
+    def _change_piece_pos(self, board, from_pos, to_pos, piece_type):
+        """
+        Moves a piece from one position to another on the board.
+
+        Args:
+            board (list): The game board as a 2D list.
+            from_pos (tuple): The current position of the piece as a tuple (row, column).
+            to_pos (tuple): The new position to move the piece to as a tuple (row, column).
+            piece_type (PieceType): The type of the piece being moved.
+        
+        Modifies:
+            board (list): Updates the board by setting the piece at 'from_pos' to empty 
+                        and placing 'piece_type' at 'to_pos'.
+        """
+        board[from_pos[0]][from_pos[1]] = PieceType.EMPTY
+        board[to_pos[0]][to_pos[1]] = piece_type
 
 class HumanPlayer(Player):
     """
@@ -428,8 +442,8 @@ class AiPlayerEasy(Player):
         """
         available_moves = None
         while not available_moves:
-            piece = random.choice(self.positions)
-            available_moves = get_available_cells_to_move(board, piece[0], piece[1], board_size)
+            piece = random.choice(self._positions)
+            available_moves = get_available_cells_to_move(board, piece, board_size)
             if available_moves:
                 to_move = random.choice(available_moves)
                 self.set_from_move(piece[0], piece[1])
@@ -457,16 +471,17 @@ class AiPlayerMedium(Player):
         found_move = None
 
         # Check if the player can win in a single move
-        found_move = self._attempt_winning_move(board, self.positions, self.piece_type, board_size)
+        board_copy = copy.deepcopy(board)
+        found_move = self._attempt_winning_move(board_copy, self._positions, self._piece_type, board_size)
 
         # Check if the opponent can win and block if necessary
         if not found_move:
-            other_player_type = PieceType.WHITE if self.piece_type == PieceType.BLACK else PieceType.BLACK
-            found_move = self._attempt_blocking_move(board, other_player_positions, other_player_type, board_size)
+            other_player_type = PieceType.WHITE if self._piece_type == PieceType.BLACK else PieceType.BLACK
+            found_move = self._attempt_blocking_move(board_copy, other_player_positions, other_player_type, board_size)
 
         # If no critical moves found, make a random move
         if not found_move:
-            found_move = self._make_random_move(board, other_player_positions, board_size)
+            found_move = self._make_random_move(board_copy, other_player_positions, board_size)
 
         self._move["waiting_time"] = 1
         return copy.deepcopy(self._move)
@@ -522,19 +537,49 @@ class AiPlayerMedium(Player):
             other_player_positions (list): Positions of the opponent's pieces.
             board_size (int): The size of the board.
         """
-        other_player_type = PieceType.WHITE if self.piece_type == PieceType.BLACK else PieceType.BLACK
+        other_player_type = PieceType.WHITE if self._piece_type == PieceType.BLACK else PieceType.BLACK
         found_move = None
         while not found_move:
-            piece = random.choice(self.positions)
-            available_moves = get_available_cells_to_move(board, piece[0], piece[1], board_size)
+            piece_pos = random.choice(self._positions)
+            available_moves = get_available_cells_to_move(board, piece_pos, board_size)
             if available_moves:
                 to_move = random.choice(available_moves)
-                is_opponent_will_win, _ = check_if_move_wins(board, piece[0], piece[1], other_player_type, board_size)
+                is_opponent_will_win = self._check_if_opponent_can_win(board, piece_pos, to_move, other_player_positions, other_player_type, board_size)
                 if not is_opponent_will_win:
-                    self._set_move(piece, to_move)
+                    self._set_move(piece_pos, to_move)
                     found_move = True
                 else:
+                    self._change_piece_pos(board, to_move, piece_pos, self._piece_type)
                     available_moves.remove(to_move)
+
+    def _check_if_opponent_can_win(self, board, piece_pos, to_move, other_player_positions, other_player_type, board_size):
+        """
+        Checks if the opponent can win after making a move.
+
+        Args:
+            board (list): The current state of the game board.
+            piece_pos (tuple): The current position of the player's piece.
+            to_move (tuple): The position to move the player's piece to.
+            other_player_positions (list): Positions of the opponent's pieces.
+            other_player_type (PieceType): The type of the opponent's pieces.
+            board_size (int): The size of the board.
+
+        Returns:
+            bool: True if the opponent can win after the move, False otherwise.
+        """
+        is_opponent_will_win = False
+        self._change_piece_pos(board, piece_pos, to_move, self._piece_type)
+        for other_piece_pos in other_player_positions:
+            other_available_moves = get_available_cells_to_move(board, other_piece_pos, board_size)
+            if piece_pos in other_available_moves:
+                self._change_piece_pos(board, other_piece_pos, piece_pos, other_player_type)
+                is_opponent_will_win, _ = check_if_move_wins(board, piece_pos, other_player_type, board_size)
+                if is_opponent_will_win:
+                    break
+                else:
+                    self._change_piece_pos(board, piece_pos, other_piece_pos, other_player_type)
+        return is_opponent_will_win
+
 
     def _set_move(self, from_move, to_move):
         """
@@ -564,8 +609,8 @@ class AiPlayerMedium(Player):
         """
         cells = get_all_cells_in_route(from_move, to_move)
         for cell in cells:
-            for piece in self.positions:
-                available_moves = get_available_cells_to_move(board, piece[0], piece[1], board_size)
+            for piece in self._positions:
+                available_moves = get_available_cells_to_move(board, piece, board_size)
                 for move in available_moves:
                     if cell == move:
                         return piece, move
@@ -585,10 +630,12 @@ class AiPlayerMedium(Player):
             tuple: The piece and its winning move if a winning move is found, or (None, None) if not.
         """
         for piece in positions:
-            available_moves = get_available_cells_to_move(board, piece[0], piece[1], board_size)
+            available_moves = get_available_cells_to_move(board, piece, board_size)
             for move in available_moves:
-                is_wins, winning_list = check_if_move_wins(board, move[0], move[1], piece_type, board_size)
-                if is_wins and piece not in winning_list:
+                self._change_piece_pos(board, piece, move, piece_type)
+                is_wins, winning_list = check_if_move_wins(board, move, piece_type, board_size)
+                self._change_piece_pos(board, move, piece, piece_type)
+                if is_wins:
                     return piece, move
         return None, None
 

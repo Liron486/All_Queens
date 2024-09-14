@@ -108,9 +108,8 @@ class GameState(QObject):
         Returns:
             bool: True if there is a winner, False otherwise.
         """
-        row, col = last_move['to'][0], last_move['to'][1]
-        piece_type = self._board[row][col]
-        is_winner, _ = check_if_move_wins(self._board, row, col, piece_type, self._board_size)
+        piece_type = self._board[last_move['to'][0]][last_move['to'][1]]
+        is_winner, _ = check_if_move_wins(self._board, last_move['to'], piece_type, self._board_size)
         if is_winner:
             self._found_winner = True
         return is_winner
@@ -426,7 +425,7 @@ class GameState(QObject):
             player_piece_type (PieceType): The type of piece the player controls.
         """
         player.set_from_move(row, col)
-        available_cells = get_available_cells_to_move(self._board, row, col, self._board_size)
+        available_cells = get_available_cells_to_move(self._board, (row, col), self._board_size)
         self.piece_was_chosen_signal.emit((row, col), self._available_cells, available_cells)
         self._available_cells = available_cells + [(row, col)]
 

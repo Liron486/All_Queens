@@ -8,6 +8,9 @@ from logger import get_logger
 
 GAME_BACKGROUND_IMAGE_PATH = resource_path('resources/images/game_background.png')
 
+B_KEY_HEBREW_VALUE = 1504
+P_KEY_HEBREW_VALUE = 1508
+
 class GameWindow(BackgroundWindow):
     """
     Represents the main game window, handling the board, score, and game interactions.
@@ -91,15 +94,23 @@ class GameWindow(BackgroundWindow):
             event (QKeyEvent): The key press event.
         """
         self._logger.debug(f"Key pressed - {event.key()}")
-        
-        if event.key() == Qt.Key_Escape:
-            self.exit_full_screen_signal.emit()
-        elif event.key() == Qt.Key_B:
-            self.b_key_was_pressed_signal.emit()
-        elif event.key() == Qt.Key_P:
-            self.p_key_was_pressed_signal.emit()
+
+        # Dictionary to map key codes to corresponding signals
+        key_code_actions = {
+            Qt.Key_Escape: self.exit_full_screen_signal.emit,
+            Qt.Key_B: self.b_key_was_pressed_signal.emit,
+            B_KEY_HEBREW_VALUE: self.b_key_was_pressed_signal.emit,  # Hebrew B key
+            Qt.Key_P: self.p_key_was_pressed_signal.emit,
+            P_KEY_HEBREW_VALUE: self.p_key_was_pressed_signal.emit,  # Hebrew P key
+        }
+
+        action = key_code_actions.get(event.key())
+
+        if action:
+            action()
         else:
             self.key_pressed_signal.emit()
+
 
     def game_paused(self):
         """

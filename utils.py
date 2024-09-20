@@ -10,6 +10,7 @@ from enum import Enum
 
 # Constants
 DEFAULT_FONT = 'Arial'
+WIN_CONDITION = 4
 
 def resource_path(relative_path):
     """

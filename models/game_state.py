@@ -1,8 +1,8 @@
 from PyQt5.QtCore import pyqtSignal, QObject
 from models.settings_model import SettingsModel
-from models.player import Player, HumanPlayer, AiPlayerEasy, AiPlayerMedium ,get_available_cells_to_move, check_if_move_wins
+from models.player import Player, HumanPlayer, AiPlayerEasy, AiPlayerMedium ,get_available_cells_to_move, check_consecutive_pieces
 from logger import get_logger
-from utils import PieceType, PlayerType, WHITE_PIECE_PATH, BLACK_PIECE_PATH
+from utils import PieceType, PlayerType, WHITE_PIECE_PATH, BLACK_PIECE_PATH, WIN_CONDITION
 
 class GameState(QObject):
     """
@@ -109,7 +109,7 @@ class GameState(QObject):
             bool: True if there is a winner, False otherwise.
         """
         piece_type = self._board[last_move['to'][0]][last_move['to'][1]]
-        is_winner, _ = check_if_move_wins(self._board, last_move['to'], piece_type, self._board_size)
+        is_winner, _ = check_consecutive_pieces(self._board, last_move['to'], piece_type, self._board_size, WIN_CONDITION)
         if is_winner:
             self._found_winner = True
         return is_winner

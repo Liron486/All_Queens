@@ -173,7 +173,7 @@ class GameState(QObject):
         Args:
             first_game (bool): Whether this is the first game being started.
         """
-        self._update_players_data(first_game)
+        self._reset_players_data(first_game)
         self._init_board()
         self._current_player_index = 0
         self._game_number += 1
@@ -440,18 +440,11 @@ class GameState(QObject):
         player.reset_move()
         self._available_cells = []
 
-    def _update_players_data(self, first_game):
-        """
-        Updates the players data at the start of a new game.
-
-        Args:
-            first_game (bool): Whether this is the first game being started.
-        """
+    def _reset_players_data(self, first_game):
         if not first_game:
             self._players[1 - self._current_player_index].update_score()
         for player in self._players:
-            player.reset_move_number()
-            player.clear_positions()
+            player.reset_data()
 
     def _update_move_route(self, move):
         """

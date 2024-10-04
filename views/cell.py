@@ -150,15 +150,15 @@ class Cell(QLabel):
             r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
             
             if r > 127:
-                # Increase r by 50%, g by 40% and decrease b by 20%
-                r = min(255, int(r * 1.5))
-                g = min(255, int(g * 1.4))
-                b = max(0, int(b * 0.8))
+                # Changing the yellow color
+                r = 252
+                g = 241
+                b = 109
             else:
-                # Decrease r and g by 5% and b by 60%
-                r = max(0, int(r * 0.95))
-                g = max(0, int(g * 0.95))
-                b = max(0, int(b * 0.4))
+                # Changing the green color
+                r = 52
+                g = 199
+                b = 50
 
             # Convert back to hex
             new_color = f'#{r:02x}{g:02x}{b:02x}'
@@ -176,5 +176,5 @@ class Cell(QLabel):
         app = QApplication.instance() or QApplication([])
         screen = app.primaryScreen()
         logical_dpi = screen.logicalDotsPerInch()
-        scaling_factor = ((logical_dpi / 240) ** 0.1) * 0.7
+        scaling_factor = ((logical_dpi / 240) ** 0.1) * 0.7 * 3
         return int(3 * scaling_factor)

@@ -144,7 +144,7 @@ class SettingsWindow(BackgroundWindow):
         self._top_spacer = self._add_spacer()
         self._create_title()
         self._title_spacer = self._add_spacer()
-        self._create_buttom_list("Number of Real Players:", ["0", "1", "2"], self._change_number_of_players, 1)
+        self._create_buttom_list("Number of Human Players:", ["0", "1", "2"], self._change_number_of_players, 1)
         self._line_spacer1 = self._add_spacer()
         self._create_player_names_ui()
         self._line_spacer2 = self._add_spacer()

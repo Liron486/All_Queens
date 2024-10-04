@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QLabel, QSizePolicy, QVBoxLayout, QApplication
+from PyQt5.QtWidgets import QLabel, QSizePolicy, QApplication
 from PyQt5.QtCore import pyqtSignal, Qt
 from PyQt5.QtGui import QPixmap
 from utils import PieceType, BLACK_PIECE_PATH, WHITE_PIECE_PATH
@@ -11,22 +11,25 @@ class Cell(QLabel):
     
     clicked = pyqtSignal(int, int)  # Signal emitted when the cell is clicked
 
-    def __init__(self, row, col, color, parent=None):
+    def __init__(self, row, col, color, label_texts=None, parent=None):
         """
-        Initializes the Cell with the given row, column, and background color.
+        Initializes the Cell with the given row, column, background color, and optional labels.
 
         Args:
             row (int): The row index of the cell.
             col (int): The column index of the cell.
             color (str): The default background color of the cell.
+            label_texts (list of tuples, optional): A list of tuples (text, alignment) for labels.
             parent (QWidget, optional): The parent widget, if any.
         """
         super().__init__(parent)
+        self.setObjectName('Cell')  # Set object name for stylesheet targeting
         self._row = row
         self._col = col
         self._cell_default_color = color
         self._cell_color = color
         self._piece = PieceType.EMPTY  # No piece initially
+        self._label_texts = label_texts or []  # Store label texts and alignments
         self._init_ui()
 
     def reset_cell(self):
@@ -34,28 +37,48 @@ class Cell(QLabel):
         Resets the cell to its default state, including color and border.
         """
         self._cell_color = self._cell_default_color
-        self.setStyleSheet(f"background-color: {self._cell_color}; border: 1px solid black;")
-    
+        self.setStyleSheet(f"""
+            #{self.objectName()} {{
+                background-color: {self._cell_color};
+                border: 1px solid black;
+            }}
+        """)
+
     def cell_pressed(self):
         """
         Changes the cell's appearance to indicate it has been pressed.
         """
         self._cell_color = "#d9f4fc"
-        self.setStyleSheet(f"background-color: {self._cell_color}; border: 1px solid black;")
+        self.setStyleSheet(f"""
+            #{self.objectName()} {{
+                background-color: {self._cell_color};
+                border: 1px solid black;
+            }}
+        """)
 
     def cell_available(self):
         """
         Highlights the cell to indicate it is available for a move.
         """
-        border_width = self._get_scaled_border_width()
-        self.setStyleSheet(f"background-color: {self._cell_color}; border: {border_width}px solid #f79b07;")
+        border_width = self._get_border_width()
+        self.setStyleSheet(f"""
+            #{self.objectName()} {{
+                background-color: {self._cell_color};
+                border: {border_width}px solid #f79b07;
+            }}
+        """)
 
     def cell_in_route(self):
         """
         Changes the cell's color to indicate it is part of a route.
         """
         self._cell_color = self._adjust_color(self._cell_default_color)
-        self.setStyleSheet(f"background-color: {self._cell_color}; border: 1px solid black;")
+        self.setStyleSheet(f"""
+            #{self.objectName()} {{
+                background-color: {self._cell_color};
+                border: 1px solid black;
+            }}
+        """)
 
     def mousePressEvent(self, event):
         """
@@ -75,7 +98,9 @@ class Cell(QLabel):
             event (QResizeEvent): The resize event.
         """
         super().resizeEvent(event)
-        self._update_cell()
+        self._update_cell_content()
+        self._image_label.setGeometry(0, 0, self.width(), self.height())
+        self._update_label_positions()
 
     @property
     def cell_content(self):
@@ -96,28 +121,60 @@ class Cell(QLabel):
             piece_type (PieceType): The type of piece to place in the cell.
         """
         self._piece = piece_type
-        self._update_cell()
+        self._update_cell_content()
 
     def _init_ui(self):
         """
-        Initializes the UI for the cell, including setting up the layout and image label.
+        Initializes the UI for the cell, including setting up the image and text labels.
         """
         self.reset_cell()
         self.setAlignment(Qt.AlignCenter)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        
+        # Configure the _image_label to fill the entire cell
+        self._image_label = QLabel(self)
+        self._image_label.setAlignment(Qt.AlignCenter)
+        self._image_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self._image_label.setGeometry(0, 0, self.width(), self.height())
+        
+        # Create labels for each label_text in label_texts
+        self._labels = []
+        for text, alignment in self._label_texts:
+            label = QLabel(self)
+            label.setText(text)
+            label.setStyleSheet("color: black; background: transparent; border: none;")  # No border or background
+            label.setAlignment(alignment)
+            label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+            label.setAttribute(Qt.WA_TransparentForMouseEvents)  # Allow clicks to pass through
+            self._labels.append(label)
 
-        # Configure the image_label
-        self.image_label = QLabel(self)
-        self.image_label.setAlignment(Qt.AlignCenter)
-        self.image_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+    def _update_label_positions(self):
+        """
+        Updates the positions and font sizes of the labels within the cell.
+        """
+        margin = max(2, int(self.width() * 0.05))
+        font_size = self._get_label_size()
+        for label in self._labels:
+            font = label.font()
+            font.setPointSize(font_size)
+            label.setFont(font)
 
-        # Create a layout and add the image_label to the layout
-        layout = QVBoxLayout()
-        layout.addWidget(self.image_label)
-        layout.setContentsMargins(0, 0, 0, 0)
-        self.setLayout(layout)
+            text_width = label.sizeHint().width()
+            text_height = label.sizeHint().height()
+            alignment = label.alignment()
+            if alignment == (Qt.AlignBottom | Qt.AlignRight):
+                x = self.width() - text_width - margin
+                y = self.height() - text_height - margin
+            elif alignment == (Qt.AlignTop | Qt.AlignLeft):
+                x = margin
+                y = margin
+            else:
+                x = (self.width() - text_width) / 2
+                y = (self.height() - text_height) / 2
+            label.move(int(x), int(y))
+            label.raise_()  # Ensure the label is above other widgets
 
-    def _update_cell(self):
+    def _update_cell_content(self):
         """
         Updates the cell's content by adjusting the piece image to the current size of the cell.
         """
@@ -130,9 +187,9 @@ class Cell(QLabel):
 
         if pixmap:
             scaled_pixmap = pixmap.scaled(self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
-            self.image_label.setPixmap(scaled_pixmap)
+            self._image_label.setPixmap(scaled_pixmap)
         else:
-            self.image_label.clear()
+            self._image_label.clear()
 
     def _adjust_color(self, hex_color):
         """
@@ -151,14 +208,10 @@ class Cell(QLabel):
             
             if r > 127:
                 # Changing the yellow color
-                r = 252
-                g = 241
-                b = 109
+                r,g,b = 252,241,109
             else:
                 # Changing the green color
-                r = 52
-                g = 199
-                b = 50
+                r,g,b = 52,199,50
 
             # Convert back to hex
             new_color = f'#{r:02x}{g:02x}{b:02x}'
@@ -166,7 +219,21 @@ class Cell(QLabel):
         else:
             raise ValueError("Provided color is not a valid hex string")
 
-    def _get_scaled_border_width(self):
+    def _get_label_size(self):
+        """
+        Calculates a scaled font size based on the cell's height.
+
+        Returns:
+            int: The scaled font size.
+        """
+        # Base the font size on the cell's height
+        app = QApplication.instance() or QApplication([])
+        screen = app.primaryScreen()
+        logical_dpi = screen.logicalDotsPerInch()
+        scaling_factor = ((logical_dpi / 96) ** 0.5) * 9.5
+        return int(scaling_factor)  # Adjust as needed
+
+    def _get_border_width(self):
         """
         Calculates a scaled border width based on the screen's DPI.
 
@@ -176,5 +243,5 @@ class Cell(QLabel):
         app = QApplication.instance() or QApplication([])
         screen = app.primaryScreen()
         logical_dpi = screen.logicalDotsPerInch()
-        scaling_factor = ((logical_dpi / 240) ** 0.1) * 0.7 * 3
-        return int(3 * scaling_factor)
+        scaling_factor = ((logical_dpi / 96) ** 0.5) * 6
+        return int(scaling_factor)  # Adjust as needed

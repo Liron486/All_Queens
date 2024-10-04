@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import QWidget, QGridLayout
-from PyQt5.QtCore import pyqtSignal
+from PyQt5.QtCore import pyqtSignal, Qt
 from views.cell import Cell
 from utils import PieceType
 
@@ -113,13 +113,26 @@ class Board(QWidget):
         self.reset_board(board)
 
     def _init_board_background(self):
-        """
-        Initializes the board background, creating cells with alternating colors.
-        """
-        for row in range(self._board_size):
-            for col in range(self._board_size):
-                color = self.color1 if (row + col) % 2 == 0 else self.color2
-                cell = Cell(row, col, color)
-                cell.clicked.connect(self.handle_cell_click)
-                self.grid_layout.addWidget(cell, row, col)
-                self._cells[(row, col)] = cell
+            """
+            Initializes the board background, creating cells with alternating colors and labels.
+            """
+            letters = ['A', 'B', 'C', 'D', 'E']
+            numbers = ['5', '4', '3', '2', '1']
+
+            for row in range(self._board_size):
+                for col in range(self._board_size):
+                    color = self.color1 if (row + col) % 2 == 0 else self.color2
+                    label_texts = []
+
+                    # Add letter labels to bottom row cells
+                    if row == self._board_size - 1:
+                        label_texts.append((letters[col], Qt.AlignBottom | Qt.AlignRight))
+
+                    # Add number labels to leftmost column cells
+                    if col == 0:
+                        label_texts.append((numbers[row], Qt.AlignTop | Qt.AlignLeft))
+
+                    cell = Cell(row, col, color, label_texts=label_texts)
+                    cell.clicked.connect(self.handle_cell_click)
+                    self.grid_layout.addWidget(cell, row, col)
+                    self._cells[(row, col)] = cell

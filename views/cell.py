@@ -219,29 +219,38 @@ class Cell(QLabel):
         else:
             raise ValueError("Provided color is not a valid hex string")
 
-    def _get_label_size(self):
+    def _calculate_scaled_value(self, divisor: float, exponent: float, multiplier: float) -> int:
+        """
+        Helper method to calculate a scaled value based on the screen's DPI.
+
+        Args:
+            divisor (float): The value by which the DPI is divided.
+            exponent (float): The exponent to which the scaled DPI is raised.
+            multiplier (float): The multiplier applied after scaling.
+
+        Returns:
+            int: The calculated scaled value.
+        """
+        app = QApplication.instance() or QApplication([])
+        screen = app.primaryScreen()
+        logical_dpi = screen.logicalDotsPerInch()
+        scaling_factor = ((logical_dpi / divisor) ** exponent) * multiplier
+        return int(scaling_factor)
+
+    def _get_label_size(self) -> int:
         """
         Calculates a scaled font size based on the cell's height.
 
         Returns:
             int: The scaled font size.
         """
-        # Base the font size on the cell's height
-        app = QApplication.instance() or QApplication([])
-        screen = app.primaryScreen()
-        logical_dpi = screen.logicalDotsPerInch()
-        scaling_factor = ((logical_dpi / 96) ** 0.5) * 9.5
-        return int(scaling_factor)  # Adjust as needed
+        return self._calculate_scaled_value(divisor=80, exponent=0.15, multiplier=9.5)
 
-    def _get_border_width(self):
+    def _get_border_width(self) -> int:
         """
         Calculates a scaled border width based on the screen's DPI.
 
         Returns:
             int: The scaled border width in pixels.
         """
-        app = QApplication.instance() or QApplication([])
-        screen = app.primaryScreen()
-        logical_dpi = screen.logicalDotsPerInch()
-        scaling_factor = ((logical_dpi / 96) ** 0.5) * 6
-        return int(scaling_factor)  # Adjust as needed
+        return self._calculate_scaled_value(divisor=100, exponent=0.75, multiplier=6)

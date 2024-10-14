@@ -1,9 +1,35 @@
 from PyQt5.QtCore import pyqtSignal
+from typing import List, Tuple, Optional
 from utils import PieceType, WIN_CONDITION
 import copy
 import random
 
-AI_MOVE_WAITING_TIME = 1.5
+AI_MOVE_WAITING_TIME = 0
+
+def get_pieces_can_move_to_target(
+    board: List[List],
+    pieces_positions: List[Tuple[int, int]],
+    target_cell: Tuple[int, int],
+    board_size: int
+) -> List[Tuple[int, int]]:
+    """
+    Identifies which pieces can move to the specified target cell.
+
+    Parameters:
+        - board (list of lists): The current game board.
+        - pieces_positions (list of tuples): The current positions of the player's pieces.
+        - target_cell (tuple): The target cell to move a piece to.
+        - board_size (int): The size of the game board.
+
+    Returns:
+        - list of tuples: Positions of the pieces that can move to the target cell.
+    """
+    movable_pieces = []
+    for piece_pos in pieces_positions:
+        available_moves = get_available_cells_to_move(board, piece_pos, board_size)
+        if available_moves and target_cell in available_moves:
+            movable_pieces.append(piece_pos)
+    return movable_pieces
 
 def get_all_cells_in_route(from_move, to_move):
     """
@@ -439,58 +465,103 @@ class Player:
         return None
 
 
-    def _make_random_move(self, board, positions, other_player_positions, board_size):
+    def _evaluate_move(
+            self,
+            board: List[List],
+            piece_pos: Tuple[int, int],
+            to_move: Tuple[int, int],
+            other_player_positions: List[Tuple[int, int]],
+            other_player_type,
+            board_size: int
+        ) -> Optional[Tuple[Tuple[int, int], Tuple[int, int]]]:
+            """
+            Evaluates a move to determine if it's safe or if the opponent can win.
+
+            Parameters:
+                - board (list of lists): The current game board.
+                - piece_pos (tuple): The current position of the player's piece.
+                - to_move (tuple): The position to move the piece to.
+                - other_player_positions (list of tuples): Opponent's piece positions.
+                - other_player_type: The type of the opponent's pieces.
+                - board_size (int): The size of the game board.
+
+            Returns:
+                - tuple: The move as (from_position, to_position) if it's safe or should be taken.
+                - None: If the move is not safe and should be skipped.
+            """
+            # Simulate the move
+            self._change_piece_pos(board, piece_pos, to_move, self._piece_type)
+            
+            # Check if the opponent can win after this move
+            is_opponent_will_win, winning_move = self._check_if_opponent_can_win(
+                board, piece_pos, to_move, other_player_positions, other_player_type, board_size
+            )
+            
+            # Undo the move
+            self._change_piece_pos(board, to_move, piece_pos, self._piece_type)
+            
+            if is_opponent_will_win:
+                opponent_route = get_all_cells_in_route(winning_move[0], winning_move[1])
+
+                # If our piece is in the opponent's winning route, skip this move
+                if piece_pos in opponent_route:
+                    return None  # Unsafe move, skip
+                else:
+                    # Opponent will win, but our piece is not in the route
+                    return (piece_pos, to_move)
+            else:
+                # Opponent will not win; this is a safe move
+                return (piece_pos, to_move)
+
+    def _make_random_move(
+        self,
+        board: List[List],
+        positions: List[Tuple[int, int]],
+        other_player_positions: List[Tuple[int, int]],
+        board_size: int
+    ) -> Tuple[Tuple[int, int], Tuple[int, int]]:
         """
         Makes a random move while trying to prevent the opponent from winning.
 
         Parameters:
-        - board (list of lists): The current game board, represented as a 2D array.
-        - positions (list of tuples): The current positions of the player's pieces.
-        - other_player_positions (list of tuples): The current positions of the opponent's pieces.
-        - board_size (int): The size of the game board (e.g., width and height).
+            - board (list of lists): The current game board, represented as a 2D array.
+            - positions (list of tuples): The current positions of the player's pieces.
+            - other_player_positions (list of tuples): The current positions of the opponent's pieces.
+            - board_size (int): The size of the game board (e.g., width and height).
 
         Returns:
-        - tuple: A random move as a tuple of (from_position, to_position).
+            - tuple: A random move as a tuple of (from_position, to_position).
 
         This function iterates over all available moves for the player's pieces, checks if the opponent will win based on the move, and makes a safe random move. If no safe move is found, it selects any random move.
         """
         other_player_type = PieceType.WHITE if self._piece_type == PieceType.BLACK else PieceType.BLACK
         available_positions_moves = []
 
-        # Loop over all positions and get their available moves
+        # Gather all available moves for each piece
         for piece_pos in positions:
             available_moves = get_available_cells_to_move(board, piece_pos, board_size)
             if available_moves:
                 available_positions_moves.append((piece_pos, available_moves))
 
-        # Shuffle the list to make the choice random
+        # Shuffle to ensure randomness
         random.shuffle(available_positions_moves)
 
-        # Loop over the new list
+        # Iterate through each piece and its available moves
         for piece_pos, available_moves in available_positions_moves:
-            random.shuffle(available_moves)  # Randomize available moves
+            random.shuffle(available_moves)  # Randomize the move order
             for to_move in available_moves:
-                self._change_piece_pos(board, piece_pos, to_move, self._piece_type)
-                is_opponent_will_win, winning_move = self._check_if_opponent_can_win(board, piece_pos, to_move, other_player_positions, other_player_type, board_size)
-                self._change_piece_pos(board, to_move, piece_pos, self._piece_type)
+                move_result = self._evaluate_move(board, piece_pos, to_move, other_player_positions, other_player_type, board_size)
+                if move_result:
+                    return move_result  # Return the first safe move found
 
-                if is_opponent_will_win:
-                    opponent_route = get_all_cells_in_route(winning_move[0], winning_move[1])
+        # If no safe move is found, choose any available move
+        if available_positions_moves:
+            piece_pos, available_moves = available_positions_moves[0]
+            to_move = available_moves[0]
+            return (piece_pos, to_move)
+        else:
+            raise ValueError("No available moves to make.")
 
-                    # If our piece is in the route, skip this move
-                    if piece_pos in opponent_route:
-                        continue  # Try the next move
-                    else:
-                        # Opponent will win, but our piece is not in the route
-                        return (piece_pos, to_move)
-                else:
-                    # Opponent will not win; make this move
-                    return (piece_pos, to_move)
-
-        # If no safe move is found, opponent will win anyway; choose any move
-        piece_pos, available_moves = available_positions_moves[0]
-        to_move = available_moves[0]
-        return (piece_pos, to_move)
 
         
     def _check_if_opponent_can_win(self, board, piece_pos, to_move, other_player_positions, other_player_type, board_size):
@@ -574,15 +645,17 @@ class Player:
         moves_for_consecutive = []
         for position in positions:
             available_moves = get_available_cells_to_move(board, position, board_size)
-            if available_moves:
-                for to_move in available_moves:
-                    self._change_piece_pos(board, position, to_move, piece_type)
-                    is_consecutive, consec_list = check_consecutive_pieces(board, to_move, piece_type, board_size, consecutive_needed)
-                    self._change_piece_pos(board, to_move, position, piece_type)
-                    if is_consecutive:
-                        moves_for_consecutive.append((position, to_move, consec_list))   
+            for to_move in available_moves:
+                self._change_piece_pos(board, position, to_move, piece_type)
+                print(position, to_move)
+                is_consecutive, consec_list = check_consecutive_pieces(board, to_move, piece_type, board_size, consecutive_needed)
+                print("consec list ", consec_list)
+                self._change_piece_pos(board, to_move, position, piece_type)
+                if is_consecutive:
+                    moves_for_consecutive.append((position, to_move, consec_list))   
         return moves_for_consecutive
 
+    
 class HumanPlayer(Player):
     """
     The HumanPlayer class represents a human player in the game, inheriting from the Player class.
@@ -687,20 +760,41 @@ class AiPlayerMedium(Player):
         if len(points) < 2:
             return []
 
-        # Calculate the direction vector
+        # Calculate the direction vector based on the first two points
         dx = points[1][0] - points[0][0]
         dy = points[1][1] - points[0][1]
 
+        if dx == 0 and dy == 0:
+            # All points are the same
+            return []
+
+        # Sort the points based on their position along the direction vector
+        # Calculate a projection value for each point
+        x0, y0 = points[0]
+        def projection(point):
+            x, y = point
+            return (x - x0) * dx + (y - y0) * dy
+
+        sorted_points = sorted(points, key=projection)
+
+        # Recalculate the direction vector based on the sorted points
+        dx = sorted_points[1][0] - sorted_points[0][0]
+        dy = sorted_points[1][1] - sorted_points[0][1]
+
+        if dx == 0 and dy == 0:
+            # All points are the same after sorting
+            return []
+
         # Ensure all points are in the same direction
-        for i in range(1, len(points)):
-            curr_dx = points[i][0] - points[i - 1][0]
-            curr_dy = points[i][1] - points[i - 1][1]
+        for i in range(1, len(sorted_points)):
+            curr_dx = sorted_points[i][0] - sorted_points[i - 1][0]
+            curr_dy = sorted_points[i][1] - sorted_points[i - 1][1]
             if (curr_dx, curr_dy) != (dx, dy):
                 return []
 
         # Calculate the next points in both directions
-        next_point_forward = (points[-1][0] + dx, points[-1][1] + dy)
-        next_point_backward = (points[0][0] - dx, points[0][1] - dy)
+        next_point_forward = (sorted_points[-1][0] + dx, sorted_points[-1][1] + dy)
+        next_point_backward = (sorted_points[0][0] - dx, sorted_points[0][1] - dy)
 
         # Check if the points are within the board boundaries
         valid_points = []
@@ -709,32 +803,22 @@ class AiPlayerMedium(Player):
                 valid_points.append((x, y))
         return valid_points
 
-    def _available_extentions(self, board, positions, board_size, winning_points):
-        """
-        Checks if either or both of the winning points are available as possible moves for the current player.
 
-        Parameters:
-        - board (list of lists): The current game board, represented as a 2D array.
-        - positions (list of tuples): The current positions of the player's pieces.
-        - board_size (int): The size of the game board (e.g., width and height).
-        - winning_points (tuple): A pair of points that are being checked for possible extension.
-
-        Returns:
-        - int: 
-            - 2 if both winning points are available.
-            - 1 if only one of the winning points is available.
-            - 0 if neither winning point is available.
-
-        This function loops over the available moves for each of the player's pieces and checks if the move would reach either of the specified winning points.
-        """
+    def _available_extentions(self, board, positions, board_size, winning_points, points_to_skip):
         point_a, point_b = winning_points
         found_a, found_b = False, False
+        print("position inside _available_extentions", positions)
         for position in positions:
+            if position in points_to_skip:
+                print("skiping point ", position, points_to_skip)
+                continue
             available_moves = get_available_cells_to_move(board, position, board_size)
             for move in available_moves:
                 if move == point_a:
+                    print("found a ", position, move)
                     found_a = True
                 if move == point_b:
+                    print("found b ", position, move)
                     found_b = True
                 if found_a and found_b:
                     return 2
@@ -777,49 +861,71 @@ class AiPlayerMedium(Player):
 
         return chosen_move
 
+    def _block_a_force_win(self, board, positions, other_player_positions, other_player_type, board_size):
+        move = None
+        winning_move, winning_options = self._find_attack(board, other_player_positions, positions, self._piece_type, other_player_type, board_size)
+        print(board)
+        print(other_player_positions)
+        print(positions)
+        print(winning_move, winning_options)
+        if winning_move and winning_options == 2:
+            blocking_options = get_pieces_can_move_to_target(board, positions, winning_move[1], board_size)
+            for piece_pos in blocking_options:
+                new_move = self._evaluate_move(board_copy, piece_pos, winning_move[1], other_player_positions, other_player_type, board_size)
+                if new_move:
+                    print("new move ", new_move)
+                    break
+        return move
 
-    def _attack_opponent(self, board_copy, positions_copy, other_player_positions_cp, other_player_type, board_size):
-        """
-        Attempts to find the best optional move based on forming three consecutive pieces.
-
-        Args:
-            board_copy (list): A copy of the game board.
-            positions_copy (list): A copy of the player's piece positions.
-            other_player_positions_cp (list): A copy of the opponent's piece positions.
-            other_player_type (PieceType): The type of the opponent's pieces.
-            board_size (int): The size of the board.
-
-        Returns:
-            tuple: The best move (from_move, to_move) and winning options value, or (None, None) if no move found.
-        """
+    def _find_attack(self, board, positions, other_player_positions, piece_type, other_piece_type, board_size):
         optional_moves = []
-        moves_for_3 = self._find_consecutive_moves(board_copy, positions_copy, self._piece_type, board_size, 3)
+        positions_cp = copy.deepcopy(positions)
+        other_player_positions_cp = copy.deepcopy(other_player_positions)
+        moves_for_3 = self._find_consecutive_moves(board, positions, piece_type, board_size, 3)
+        print("positions ", positions)
+        print("other positions", other_player_positions)
+        print("moves for 3 ", moves_for_3)
         for from_move, to_move, consec_pieces in moves_for_3:
             points_that_win = self._get_consecutive_extensions(consec_pieces, board_size)
-            self._change_piece_pos(board_copy, from_move, to_move, self._piece_type)
+            self._change_piece_pos(board, from_move, to_move, piece_type)
+            positions_cp.remove(from_move)
+            positions_cp.append(to_move)
+            print("from_move, to_move, consec_pieces ", from_move, to_move, consec_pieces)
+            print("points that win ", points_that_win)
             if len(points_that_win) == 2:
-                options_to_win = self._available_extentions(board_copy, positions_copy, board_size, points_that_win)
+                options_to_win = self._available_extentions(board, positions_cp, board_size, points_that_win, consec_pieces)
+                print("options_to_win ", options_to_win)
                 if options_to_win == 2:
                     optional_moves.append((from_move, to_move, 2))
                 elif options_to_win == 1:
-                    blocking_move = self._block_winning_move(board_copy, positions_copy, other_player_positions_cp, other_player_type, board_size)
-                    if not blocking_move:
-                        optional_moves.append((from_move, to_move, 2))
-                    else:
+                    blocking_move = self._block_winning_move(board, other_player_positions, positions_cp, piece_type, board_size)
+                    print("blocking move ", blocking_move)
+                    if blocking_move:
                         optional_moves.append((from_move, to_move, 1))
+                    else:
+                        optional_moves.append((from_move, to_move, 2))
             elif len(points_that_win) == 1:
-                winning_move = self._attempt_winning_move(board_copy, positions_copy, self._piece_type, board_size)
+                print("in elif  points_that_win", points_that_win)
+                winning_move = self._attempt_winning_move(board, positions_cp, piece_type, board_size)
+                print("winning move ", winning_move)
                 if winning_move:
-                    optional_moves.append((from_move, to_move, 1))
-            self._change_piece_pos(board_copy, to_move, from_move, self._piece_type)
+                    blocking_move = self._block_winning_move(board, other_player_positions, positions_cp, piece_type, board_size)
+                    if blocking_move:
+                        optional_moves.append((from_move, to_move, 1))
+                    else:
+                        optional_moves.append((from_move, to_move, 2))
+            self._change_piece_pos(board, to_move, from_move, piece_type)
+            positions_cp.remove(to_move)
+            positions_cp.append(from_move)
 
         new_move = None
         winning_options = None
+        print(optional_moves)
         while not new_move and len(optional_moves) != 0:
             from_move, to_move, winning_options = self._get_the_best_optional_move(optional_moves)
-            self._change_piece_pos(board_copy, from_move, to_move, self._piece_type)
-            is_opponent_will_win, _ = self._check_if_opponent_can_win(board_copy, positions_copy, to_move, other_player_positions_cp, other_player_type, board_size)
-            self._change_piece_pos(board_copy, to_move, from_move, self._piece_type)
+            self._change_piece_pos(board, from_move, to_move, piece_type)
+            is_opponent_will_win, _ = self._check_if_opponent_can_win(board, positions, to_move, other_player_positions, other_piece_type, board_size)
+            self._change_piece_pos(board, to_move, from_move, piece_type)
             if not is_opponent_will_win:
                 new_move = (from_move, to_move)
             else:
@@ -845,20 +951,41 @@ class AiPlayerMedium(Player):
         board_copy = copy.deepcopy(board)
         positions_copy = copy.deepcopy(self._positions)
 
+        x = self._get_consecutive_extensions([(2, 2), (3, 2), (1, 2)], board_size)
+        print()
+        print()
+        print()
+        print(x)
+        print()
+        print()
+        print()
+        print()
         # Check if the player can win in a single move
+        print("winning move")
         new_move = self._attempt_winning_move(board_copy, positions_copy, self._piece_type, board_size)
 
-        # Check if the opponent can win and block if necessary
+        # Check if the opponent can win and block it
         if not new_move:
+            print("try to block")
             other_player_type = PieceType.WHITE if self._piece_type == PieceType.BLACK else PieceType.BLACK
             new_move = self._block_winning_move(board_copy, positions_copy, other_player_positions, other_player_type, board_size)
+            if new_move:
+                print("blocking winning move")
         
+        # check if the opponent can force a win and block it
+        # if not new_move:
+        #     print("block a force win")
+        #     new_move = self._block_a_force_win(board_copy, positions_copy, other_player_positions, other_player_type, board_size)
+
         # Try to find the best optional move
         if not new_move and self._first_turn_played:
-            new_move, winning_options = self._attack_opponent(board_copy, positions_copy, other_player_positions, other_player_type, board_size)
+            print("attack")
+            new_move, winning_options = self._find_attack(board_copy, positions_copy, other_player_positions, self._piece_type, other_player_type, board_size)
+            print("attavk move ", new_move, winning_options)
 
         # If no critical moves found, make a random move
         if not new_move:
+            print("random move")
             new_move = self._make_random_move(board_copy, positions_copy, other_player_positions, board_size)
 
         self._set_move(*new_move)

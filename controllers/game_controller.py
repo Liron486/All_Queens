@@ -6,6 +6,7 @@ from models.game_state import GameState
 from logger import get_logger
 
 WINNING_SOUND_PATH = resource_path('resources/sounds/winning.wav')
+LOSING_SOUND_PATH = resource_path('resources/sounds/losing.wav')
 INVALID_MOVE_SOUND_PATH = resource_path('resources/sounds/invalid_move.wav')
 MILLISECONDS_IN_SECOND = 1000
 
@@ -94,12 +95,14 @@ class GameController:
         Logs an error if there is an issue initializing the sounds.
         """
         try:
-            self.winning_sound = QSound(WINNING_SOUND_PATH)
-            self.invalid_move_sound = QSound(INVALID_MOVE_SOUND_PATH)
+            self._winning_sound = QSound(WINNING_SOUND_PATH)
+            self._losing_sound = QSound(LOSING_SOUND_PATH)
+            self._invalid_move_sound = QSound(INVALID_MOVE_SOUND_PATH)
         except Exception as e:
             self._logger.error(f"Error initializing sounds: {e}")
-            self.winning_sound = None
-            self.invalid_move_sound = None
+            self._winning_sound = None
+            self._losing_sound = None
+            self._invalid_move_sound = None
 
     def piece_was_chosen_signal(self, pressed_cell, cells_to_reset, available_cells):
         """
@@ -137,7 +140,7 @@ class GameController:
         self._view.key_pressed_signal.connect(self.start_new_game)
         self._view.b_key_was_pressed_signal.connect(self.undo_last_move)
         self._view.p_key_was_pressed_signal.connect(self.pause_game)
-        self._game_state.invalid_move_signal.connect(lambda: self.invalid_move_sound.play())
+        self._game_state.invalid_move_signal.connect(lambda: self._invalid_move_sound.play())
         self._game_state.piece_was_chosen_signal.connect(self.piece_was_chosen_signal)
         self._game_state.player_finish_move_signal.connect(self.execute_move)
 
@@ -163,8 +166,9 @@ class GameController:
             row (int): The row of the cell that was clicked.
             col (int): The column of the cell that was clicked.
         """
-        self._logger.debug(f"{self._game_state.current_player_name} pressed on cell ({row},{col})")
-        self._game_state.check_move(row, col)
+        state = self._game_state
+        self._logger.debug(f"{state.current_player_name} pressed on cell ({row},{col})")
+        state.check_move(row, col)
 
     def _continue_after_delay(self, move, player_type, is_undo_move):
         """
@@ -213,7 +217,22 @@ class GameController:
         """
         self._logger.debug(f"We Have a Winner!!! {self._game_state.next_player_name} Wins!")
         self._view.display_winning_text(self._game_state.next_player_name)
-        self.winning_sound.play()
+        self._play_end_game_sound()
+
+    def _play_end_game_sound(self):
+        """
+        Plays the appropriate end game sound based on the game outcome and player type.
+
+        This method checks if the game is a human versus computer match and if the 
+        current player is AI. If the AI is the current player, the losing sound will 
+        be played, indicating that the human player lost. Otherwise, the winning 
+        sound will be played.
+        """
+        state = self._game_state
+        if state.is_human_vs_computer() and state.next_player_type is PlayerType.AI:
+            self._losing_sound.play()
+        else:
+            self._winning_sound.play()
 
     def _apply_and_update_move(self, move, player_type, is_undo_move):
         """

@@ -35,6 +35,7 @@ class GameState(QObject):
         """
         self._board_size = settings.get_setting('board_size')
         self._is_edit_mode = settings.get_setting('is_edit_mode')
+        self._num_human_players = settings.get_setting('num_human_players')
         self._game_number = 0
         self._current_player_index = 0
         self._available_cells = []
@@ -268,6 +269,16 @@ class GameState(QObject):
         return self._players[self._current_player_index].player_type
 
     @property
+    def next_player_type(self):
+        """
+        Gets the next player's type.
+
+        Returns:
+            PlayerType: The next player's type.
+        """
+        return self._players[1 - self._current_player_index].player_type
+
+    @property
     def next_player_name(self):
         """
         Gets the name of the next player.
@@ -321,6 +332,20 @@ class GameState(QObject):
         """
         return self._abort_last_move > 0
 
+    def is_human_vs_computer(self):
+        """
+        Determines if the game is a human versus computer match.
+
+        This method checks whether there is only one human player in the game, 
+        which would indicate that the match is between a human and the computer.
+
+        Returns:
+            bool: True if the game is human vs. computer (1 human player), 
+                False otherwise.
+        """
+        return self._num_human_players == 1
+
+
     def _init_players_settings(self, settings: SettingsModel):
         """
         Initializes the players based on the settings provided.
@@ -329,15 +354,14 @@ class GameState(QObject):
             settings (SettingsModel): The settings for the players.
         """
         names = settings.get_setting('names')
-        num_real_players = settings.get_setting('num_real_players')
         is_starting = settings.get_setting('is_starting')
         difficulties = settings.get_setting('difficulty')
         pic_paths = [WHITE_PIECE_PATH, BLACK_PIECE_PATH]
         piece_types = [PieceType.WHITE, PieceType.BLACK]
 
-        player_types = [PlayerType.HUMAN if i < num_real_players else PlayerType.AI for i in range(len(names))]
+        player_types = [PlayerType.HUMAN if i < self._num_human_players else PlayerType.AI for i in range(len(names))]
         
-        if num_real_players == 1:
+        if self.is_human_vs_computer():
             difficulties[1] = difficulties[0]
             if not is_starting:
                 names[0], names[1] = names[1], names[0]

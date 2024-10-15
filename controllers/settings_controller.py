@@ -60,7 +60,7 @@ class SettingsController(QObject):
             number (int): The number of real players.
         """
         self._logger.debug(f"Number of real players changed to {number}")
-        self._model.set_setting("num_real_players", int(number))
+        self._model.set_setting("num_human_players", int(number))
 
     def set_difficulty(self, difficulty, idx):
         """

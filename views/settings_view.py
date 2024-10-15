@@ -406,17 +406,17 @@ class SettingsWindow(BackgroundWindow):
             button.setFixedSize(int(button_width_size), int(button_height_size))
             button.setFont(QFont(DEFAULT_FONT, int(font_size)))
 
-    def _adjust_section_visibility(self, num_real_players):
+    def _adjust_section_visibility(self, num_human_players):
         """
-        Adjusts the visibility of sections based on the number of real players selected.
+        Adjusts the visibility of sections based on the number of human players selected.
 
         Args:
-            num_real_players (str): The number of real players as a string.
+            num_human_players (str): The number of human players as a string.
         """
         layout_configs = [
-            (DIFFICULTY1_INDEX, num_real_players != "2", difficulty_text_first_player if num_real_players == "0" else default_difficulty_text),
-            (DIFFICULTY2_INDEX, num_real_players == "0", difficulty_text_second_player),
-            (STARTING_PLAYER_INDEX, num_real_players == "1", starting_layer_text),
+            (DIFFICULTY1_INDEX, num_human_players != "2", difficulty_text_first_player if num_human_players == "0" else default_difficulty_text),
+            (DIFFICULTY2_INDEX, num_human_players == "0", difficulty_text_second_player),
+            (STARTING_PLAYER_INDEX, num_human_players == "1", starting_layer_text),
         ]
 
         for layout_idx, visibility_condition, text in layout_configs:

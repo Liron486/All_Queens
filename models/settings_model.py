@@ -10,7 +10,7 @@ class SettingsModel:
         self.settings = {
             'board_size': 5,
             'difficulty': ['Easy', 'Easy'],
-            'num_real_players': 1,
+            'num_human_players': 1,
             'is_starting': True,
             'names': ["player1", "player2"],
             'is_edit_mode': False

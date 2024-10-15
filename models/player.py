@@ -4,7 +4,7 @@ from utils import PieceType, WIN_CONDITION
 import copy
 import random
 
-AI_MOVE_WAITING_TIME = 0
+AI_MOVE_WAITING_TIME = 1.5
 
 def get_pieces_that_can_move_to_target(
     board: List[List],

@@ -213,6 +213,18 @@ class GameState(QObject):
         return self._found_winner
 
     @property
+    def is_edit_mode(self):
+        """
+        Returns whether the current mode is 'edit mode'.
+
+        This property provides read-only access to the private attribute `_is_edit_mode`, 
+        indicating if the system is in edit mode.
+
+        Returns: True if the system is in edit mode, False otherwise.
+        """
+        return self._is_edit_mode
+
+    @property
     def players(self):
         """
         Gets the list of players.

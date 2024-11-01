@@ -1,5 +1,5 @@
-from PyQt5.QtWidgets import QVBoxLayout, QWidget, QSizePolicy, QLabel
-from PyQt5.QtCore import pyqtSignal, Qt
+from PyQt5.QtWidgets import QVBoxLayout, QWidget, QSizePolicy, QLabel, QApplication
+from PyQt5.QtCore import pyqtSignal, QTimer, Qt, QEvent, QPoint
 from PyQt5.QtGui import QFont
 from views.board import Board
 from views.score import Score
@@ -20,7 +20,9 @@ class GameWindow(BackgroundWindow):
     key_pressed_signal = pyqtSignal()
     b_key_was_pressed_signal = pyqtSignal()
     p_key_was_pressed_signal = pyqtSignal()
-    player_make_move_signal = pyqtSignal(int, int)
+    player_click_signal = pyqtSignal(int, int)
+    player_release_signal = pyqtSignal(int, int)
+    player_hold_cell_signal = pyqtSignal(int, int)
 
     def __init__(self, players, game_number, board, parent=None):
         """
@@ -34,8 +36,15 @@ class GameWindow(BackgroundWindow):
         """
         super().__init__(GAME_BACKGROUND_IMAGE_PATH, parent)
         self._logger = get_logger(self.__class__.__name__)
+        self._press_timer = QTimer(self)
+        self._press_timer.setSingleShot(True)
+        self._press_duration = 500  # Duration in milliseconds to consider as a hold
+        self._current_pressed_cell = None
         self._init_ui(players, game_number, board)
         self._setup_connections()
+
+        # Install the global mouse release event filter
+        QApplication.instance().installEventFilter(self)
 
     def tag_available_cells(self, pressed_cell, available_cells):
         """
@@ -76,16 +85,6 @@ class GameWindow(BackgroundWindow):
         self._board.set_cell_content(move["from"], PieceType.EMPTY)
         self._board.set_cell_content(move["to"], piece_type)
 
-    def player_make_move(self, row, col):
-        """
-        Emits a signal when a player makes a move by clicking on the board.
-
-        Args:
-            row (int): The row index of the clicked cell.
-            col (int): The column index of the clicked cell.
-        """
-        self.player_make_move_signal.emit(row, col)
-
     def keyPressEvent(self, event):
         """
         Handles key press events, emitting relevant signals based on the key pressed.
@@ -110,7 +109,6 @@ class GameWindow(BackgroundWindow):
             action()
         else:
             self.key_pressed_signal.emit()
-
 
     def game_paused(self):
         """
@@ -142,7 +140,7 @@ class GameWindow(BackgroundWindow):
             event (QMouseEvent): The mouse event.
         """
         if event.button() == Qt.LeftButton:
-            self.player_make_move_signal.emit(-1, -1)
+            self._handle_click(-1, -1)  # Example behavior
 
     def start_new_game(self, board, players_data, cells_to_reset, game_number):
         """
@@ -170,11 +168,105 @@ class GameWindow(BackgroundWindow):
         """
         self._score.update_scores(players_data)
 
+    def on_cell_pressed(self, row, col):
+        """
+        Callback for when a cell is pressed. Starts the timer to detect a hold.
+        
+        Args:
+            row (int): The row of the pressed cell.
+            col (int): The column of the pressed cell.
+        """
+        print(f"Cell pressed at ({row}, {col})")
+        self._handle_click(row, col)
+        self._current_pressed_cell = (row, col)
+        self._press_timer.timeout.connect(self._handle_hold)
+        self._press_timer.start(self._press_duration)
+    
+    def _handle_hold(self):
+        """
+        Handles a hold event by emitting the player_hold_cell_signal.
+        """
+        if self._current_pressed_cell:
+            row, col = self._current_pressed_cell
+            print(f"Emitting player_hold_cell_signal for cell ({row}, {col})")
+            self.player_hold_cell_signal.emit(row, col)
+
+    def _handle_mouse_release(self, event):
+        """
+        Handles the global mouse release event by determining the target cell.
+
+        Args:
+            event (QMouseEvent): The mouse release event.
+        """
+        if self._current_pressed_cell:
+            # Get the global cursor position
+            global_pos = event.globalPos()
+            # Map it to the Board's coordinate system
+            board_pos = self._board.mapFromGlobal(global_pos)
+            # Determine which cell is at this position
+            target_cell = self._board.get_cell_at_position(board_pos)
+            if target_cell:
+                target_row, target_col = target_cell.get_position()
+                print(f"Mouse released on cell ({target_row}, {target_col})")
+
+                if self._press_timer.isActive():
+                    # The timer is still active, so it's a click
+                    self._press_timer.stop()
+                    self._handle_release(target_row, target_col)
+                else:
+                    # The hold has already been handled; do nothing or handle additional logic
+                    pass
+            else:
+                self._handle_release(-1, -1)
+
+            print("disconnecting")
+            self._press_timer.timeout.disconnect(self._handle_hold)
+            # Reset the current pressed cell regardless of where release happened
+            self._current_pressed_cell = None
+
+    def _handle_click(self, row, col):
+        """
+        Handles a click event by emitting the player_click_signal.
+
+        Args:
+            row (int): The row of the clicked cell.
+            col (int): The column of the clicked cell.
+        """
+        print(f"Emitting player_click_signal for cell ({row}, {col})")
+        self.player_click_signal.emit(row, col)
+
+    def _handle_release(self, row, col):
+        """
+        Handles a release event by emitting the player_release_signal.
+
+        Args:
+            row (int): The row of the clicked cell.
+            col (int): The column of the clicked cell.
+        """
+        print(f"Emitting player_release_signal for cell ({row}, {col})")
+        self.player_release_signal.emit(row, col)
+
+    def eventFilter(self, obj, event):
+        """
+        Filters events to capture global mouse release events.
+
+        Args:
+            obj (QObject): The object the event is sent to.
+            event (QEvent): The event being sent.
+
+        Returns:
+            bool: True if the event is handled, False otherwise.
+        """
+        if event.type() == QEvent.MouseButtonRelease and event.button() == Qt.LeftButton:
+            self._handle_mouse_release(event)
+        return super().eventFilter(obj, event)
+
     def _setup_connections(self):
         """
         Sets up signal-slot connections for the board interactions.
         """
-        self._board.cell_clicked.connect(self.player_make_move)
+        self._board.cell_press_signal.connect(self.on_cell_pressed)
+        # Removed connection to cell_release_signal
 
     def _init_ui(self, players, game_number, board):
         """

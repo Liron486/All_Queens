@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import QWidget, QGridLayout
-from PyQt5.QtCore import pyqtSignal, Qt
+from PyQt5.QtCore import pyqtSignal, Qt, QPoint
 from views.cell import Cell
 from utils import PieceType
 
@@ -8,7 +8,8 @@ class Board(QWidget):
     Represents a chess or game board, handling the UI and interactions for the board cells.
     """
     
-    cell_clicked = pyqtSignal(int, int)  # Signal emitted when a cell is clicked
+    cell_press_signal = pyqtSignal(int, int)
+    # Removed cell_release_signal since Cell no longer emits it
     color1 = "#faeec0"  # First color for the board cells
     color2 = "#389661"  # Second color for the board cells
 
@@ -79,15 +80,8 @@ class Board(QWidget):
         for cell in available_cells:
             self._cells[cell].cell_available()
 
-    def handle_cell_click(self, row, col):
-        """
-        Handles the event when a cell is clicked, emitting a signal with the cell's coordinates.
-
-        Args:
-            row (int): The row index of the clicked cell.
-            col (int): The column index of the clicked cell.
-        """
-        self.cell_clicked.emit(row, col)
+    def handle_cell_press(self, row, col):
+        self.cell_press_signal.emit(row, col)
 
     def reset_board(self, board):
         """
@@ -133,6 +127,35 @@ class Board(QWidget):
                         label_texts.append((numbers[row], Qt.AlignTop | Qt.AlignLeft))
 
                     cell = Cell(row, col, color, label_texts=label_texts)
-                    cell.clicked.connect(self.handle_cell_click)
+                    cell.mouse_press_signal.connect(self.handle_cell_press)
+                    # Removed connection to cell_release_signal
                     self.grid_layout.addWidget(cell, row, col)
                     self._cells[(row, col)] = cell
+
+    def get_cell_at_position(self, pos: QPoint):
+        """
+        Returns the cell at the given position.
+
+        Args:
+            pos (QPoint): The position relative to the Board.
+
+        Returns:
+            Cell or None: The cell at the position or None if out of bounds.
+        """
+        for (row, col), cell in self._cells.items():
+            if cell.geometry().contains(pos):
+                return cell
+        return None
+
+    def get_cell_by_coordinates(self, row, col):
+        """
+        Retrieves a cell by its row and column.
+
+        Args:
+            row (int): The row index.
+            col (int): The column index.
+
+        Returns:
+            Cell or None: The cell at the specified position or None if invalid.
+        """
+        return self._cells.get((row, col), None)

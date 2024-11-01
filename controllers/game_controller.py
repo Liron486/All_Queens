@@ -16,7 +16,7 @@ class GameController:
     and the view, handles player moves, and manages the game's sound effects.
     """
 
-    def __init__(self, game_state, view, is_edit_mode=False):
+    def __init__(self, game_state, view):
         """
         Initializes the GameController with the provided game state and view.
 
@@ -31,7 +31,8 @@ class GameController:
         self._signal_connected = False
         self._init_sounds()
         self._setup_connections()
-        self._get_move_from_player()
+        if not self._game_state.is_edit_mode:
+            self._get_move_from_player()
 
     def start_new_game(self):
         """
@@ -55,7 +56,7 @@ class GameController:
         if is_paused:
             self._view.game_paused()
             if self._signal_connected:
-                self._view.player_make_move_signal.disconnect(self._handle_move_from_player)
+                self._view.player_click_signal.disconnect(self._handle_move_from_player)
                 self._signal_connected = False
         else:
             self._view.game_resumed()
@@ -72,7 +73,7 @@ class GameController:
             route_to_reset = state.route_of_last_move.copy()
             self._view.start_new_game(state.board, state.players, route_to_reset, state.game_number)
         elif self._signal_connected and not state.is_initial_setup():
-            self._view.player_make_move_signal.disconnect(self._handle_move_from_player)
+            self._view.player_click_signal.disconnect(self._handle_move_from_player)
             self._signal_connected = False
         state.player_wants_to_undo_last_move()
 
@@ -104,7 +105,7 @@ class GameController:
             self._losing_sound = None
             self._invalid_move_sound = None
 
-    def piece_was_chosen_signal(self, pressed_cell, cells_to_reset, available_cells):
+    def piece_was_chosen(self, pressed_cell, cells_to_reset, available_cells):
         """
         Handles the signal when a piece is chosen by the player.
         Updates the view to reflect the chosen piece and available moves.
@@ -141,7 +142,7 @@ class GameController:
         self._view.b_key_was_pressed_signal.connect(self.undo_last_move)
         self._view.p_key_was_pressed_signal.connect(self.pause_game)
         self._game_state.invalid_move_signal.connect(lambda: self._invalid_move_sound.play())
-        self._game_state.piece_was_chosen_signal.connect(self.piece_was_chosen_signal)
+        self._game_state.piece_was_chosen_signal.connect(self.piece_was_chosen)
         self._game_state.player_finish_move_signal.connect(self.execute_move)
 
     def _get_move_from_player(self):
@@ -151,7 +152,7 @@ class GameController:
         """
         player_type = self._game_state.current_player_type
         if player_type is PlayerType.HUMAN:
-            self._view.player_make_move_signal.connect(self._handle_move_from_player)
+            self._view.player_click_signal.connect(self._handle_move_from_player)
             self._signal_connected = True
         else:
             move = self._game_state.get_ai_move()
@@ -260,5 +261,5 @@ class GameController:
         self._view.update_move_number(self._game_state.players)
         self._view.tag_cells_in_route(self._game_state.route_of_last_move)
         if player_type is PlayerType.HUMAN:
-            self._view.player_make_move_signal.disconnect(self._handle_move_from_player)
+            self._view.player_click_signal.disconnect(self._handle_move_from_player)
             self._signal_connected = False

@@ -5,11 +5,10 @@ from utils import PieceType, BLACK_PIECE_PATH, WHITE_PIECE_PATH
 
 class Cell(QLabel):
     """
-    Represents a single cell on a board, handling its appearance, interactions,
-    and the piece it contains.
+    Represents a single cell on a board, handling its appearance and interactions.
     """
     
-    clicked = pyqtSignal(int, int)  # Signal emitted when the cell is clicked
+    mouse_press_signal = pyqtSignal(int, int)  # Only emit press signals
 
     def __init__(self, row, col, color, label_texts=None, parent=None):
         """
@@ -23,7 +22,7 @@ class Cell(QLabel):
             parent (QWidget, optional): The parent widget, if any.
         """
         super().__init__(parent)
-        self.setObjectName('Cell')  # Set object name for stylesheet targeting
+        self.setObjectName(f'Cell_{row}_{col}')  # Unique object name for styling
         self._row = row
         self._col = col
         self._cell_default_color = color
@@ -31,6 +30,15 @@ class Cell(QLabel):
         self._piece = PieceType.EMPTY  # No piece initially
         self._label_texts = label_texts or []  # Store label texts and alignments
         self._init_ui()
+
+    def get_position(self):
+        """
+        Returns the position of the cell.
+
+        Returns:
+            tuple: (row, col)
+        """
+        return (self._row, self._col)
 
     def reset_cell(self):
         """
@@ -52,7 +60,7 @@ class Cell(QLabel):
         self.setStyleSheet(f"""
             #{self.objectName()} {{
                 background-color: {self._cell_color};
-                border: 1px solid black;
+                border: 2px solid blue;
             }}
         """)
 
@@ -81,14 +89,8 @@ class Cell(QLabel):
         """)
 
     def mousePressEvent(self, event):
-        """
-        Handles the mouse press event, emitting the clicked signal if the left button is pressed.
-
-        Args:
-            event (QMouseEvent): The mouse event.
-        """
         if event.button() == Qt.LeftButton:
-            self.clicked.emit(self._row, self._col)  # Emit the clicked signal with row and column
+            self.mouse_press_signal.emit(self._row, self._col)
 
     def resizeEvent(self, event):
         """

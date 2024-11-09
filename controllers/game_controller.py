@@ -31,7 +31,9 @@ class GameController:
         self._signal_connected = False
         self._init_sounds()
         self._setup_connections()
-        if not self._game_state.is_edit_mode:
+        if self._game_state.is_edit_mode:
+            self._init_edit_mode()
+        else:
             self._get_move_from_player()
 
     def start_new_game(self):
@@ -145,11 +147,26 @@ class GameController:
         self._game_state.piece_was_chosen_signal.connect(self.piece_was_chosen)
         self._game_state.player_finish_move_signal.connect(self.execute_move)
 
+    def _init_edit_mode(self):
+        print("init edit mode")
+        self._view.enter_was_pressed_signal.connect(self._exit_edit_mode)
+        self._view.player_hold_cell_signal.connect(self._handle_holding_cell)
+        self._view.player_release_signal.connect(self._handle_release_on_cell)
+
+    def _exit_edit_mode(self):
+        print("exit edit mode")
+        self._game_state.exit_edit_mode()
+        self._view.enter_was_pressed_signal.disconnect(self._exit_edit_mode)
+        self._view.player_hold_cell_signal.disconnect(self._handle_holding_cell)
+        self._view.player_release_signal.disconnect(self._handle_release_on_cell)
+        self._move_finished()
+
     def _get_move_from_player(self):
         """
         Initiates the process of getting a move from the current player,
         either human or AI.
         """
+        print("_get_move_from_player")
         player_type = self._game_state.current_player_type
         if player_type is PlayerType.HUMAN:
             self._view.player_click_signal.connect(self._handle_move_from_player)
@@ -157,6 +174,27 @@ class GameController:
         else:
             move = self._game_state.get_ai_move()
             self.execute_move(move, player_type)
+
+    def _handle_release_on_cell(self, row, col):
+        state = self._game_state
+        piece = state.piece_type_edit_mode
+        valid_edit_move, pressed_cell = state.edit_board_to(row, col)
+        print("valid_edit_move, pressed_cell",valid_edit_move, pressed_cell)
+        if valid_edit_move:
+            print("setting cell piece", piece)
+            self._view._set_cell((row,col), piece)
+        elif pressed_cell:
+            self._view._set_cell(pressed_cell, piece)
+        
+    def _handle_holding_cell(self, row, col):
+        state = self._game_state
+        is_valid_cell = state.edit_board_from(row, col)
+
+        if is_valid_cell:
+            cell = (row, col)
+            state.piece_type_edit_mode = self._view.get_cell_piece_type(cell)
+            state.pressed_cell_edit_mode = cell
+            self._view.pick_piece(cell)
 
     def _handle_move_from_player(self, row, col):
         """
@@ -167,9 +205,10 @@ class GameController:
             row (int): The row of the cell that was clicked.
             col (int): The column of the cell that was clicked.
         """
+        print("HIIII")
         state = self._game_state
         self._logger.debug(f"{state.current_player_name} pressed on cell ({row},{col})")
-        state.check_move(row, col)
+        state.check_move_validity(row, col)
 
     def _continue_after_delay(self, move, player_type, is_undo_move):
         """
@@ -189,7 +228,10 @@ class GameController:
         if not state.is_game_in_progress:
             return
 
-        if state.check_for_winner(move):
+        self._move_finished(move)
+
+    def _move_finished(self, move=None):
+        if self._game_state.check_for_winner(move):
             self._handle_winner()
         else:
             self._get_move_from_player()

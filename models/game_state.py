@@ -34,8 +34,13 @@ class GameState(QObject):
             settings (SettingsModel): The settings for the game.
         """
         self._board_size = settings.get_setting('board_size')
-        self._is_edit_mode = settings.get_setting('is_edit_mode')
         self._num_human_players = settings.get_setting('num_human_players')
+        self._is_edit_mode = settings.get_setting('is_edit_mode')
+        self._edit_mode_params = {
+            "enabled" : settings.get_setting('is_edit_mode'),
+            "piece_type" : PieceType.EMPTY,
+            "pressed_cell" : None
+        }
         self._game_number = 0
         self._current_player_index = 0
         self._available_cells = []
@@ -50,7 +55,42 @@ class GameState(QObject):
 
         self.start_new_game(True)
 
-    def check_move(self, row, col):
+    def edit_board_to(self, row, col):
+        pressed_cell = self.pressed_cell_edit_mode
+        print("pressed_cell, row, col", pressed_cell, row, col)
+        piece_type = self.piece_type_edit_mode
+        self.piece_type_edit_mode = PieceType.EMPTY
+        if (row == -1 and col == -1) or pressed_cell is None:
+            return False, pressed_cell            
+
+        target_cell_piece_type = self._board[row][col]
+        is_valid_cell = target_cell_piece_type is PieceType.EMPTY
+        if is_valid_cell:
+            self._update_board(pressed_cell, (row, col))
+            player_idx = 0
+            if piece_type is PieceType.BLACK:
+                player_idx = 1
+            self.players[player_idx].set_from_move(*pressed_cell)
+            self.players[player_idx].set_to_move(row, col)
+            self.players[player_idx].reset_move()
+            
+        elif pressed_cell == (row,col):
+            is_valid_cell = True
+
+        return is_valid_cell, pressed_cell
+
+    def edit_board_from(self, row, col):
+        if row == -1 and col == -1:
+            return False
+        
+        target_cell_piece_type = self._board[row][col]
+        is_valid_cell = target_cell_piece_type is not PieceType.EMPTY
+        if is_valid_cell:
+            self.pressed_cell_edit_mode = (row, col)
+
+        return is_valid_cell
+
+    def check_move_validity(self, row, col):
         """
         Checks the validity of a move made by the player and handles it accordingly.
 
@@ -99,21 +139,32 @@ class GameState(QObject):
             self._abort_last_move += 1
         return not self._game_in_progress
 
-    def check_for_winner(self, last_move):
+    def check_for_winner(self, last_move=None):
         """
-        Checks if the last move resulted in a win.
+        Checks if there is a winner.
 
         Args:
-            last_move (dict): The last move made.
+            last_move (dict, optional): The last move made.
 
         Returns:
             bool: True if there is a winner, False otherwise.
         """
-        piece_type = self._board[last_move['to'][0]][last_move['to'][1]]
-        is_winner, _ = check_consecutive_pieces(self._board, last_move['to'], piece_type, self._board_size, WIN_CONDITION)
+        is_winner = False
+        if last_move is not None:
+            piece_type = self._board[last_move['to'][0]][last_move['to'][1]]
+            is_winner, _ = check_consecutive_pieces(self._board, last_move['to'], piece_type, self._board_size, WIN_CONDITION)
+        else:
+            winner_piece = self._check_winner_full_board()
+            if winner_piece:
+                if winner_piece is PieceType.WHITE:
+                    self._switch_players()
+                self._found_winner = True
+                is_winner = True
+        
         if is_winner:
             self._found_winner = True
         return is_winner
+
 
     def apply_move(self, move, is_undo=False):
         """
@@ -127,8 +178,7 @@ class GameState(QObject):
             list: The cells that need to be reset after the move.
         """
         self._found_winner = False
-        self._board[move["to"][0]][move["to"][1]] = self._board[move["from"][0]][move["from"][1]]
-        self._board[move["from"][0]][move["from"][1]] = PieceType.EMPTY   
+        self._update_board(move["from"], move["to"]) 
         cells_to_reset = self._available_cells + self._cells_in_route
 
         if is_undo:
@@ -139,7 +189,7 @@ class GameState(QObject):
             self._update_move_route(move)
             self._game_moves.append(move)
 
-        self._current_player_index = 1 - self._current_player_index
+        self._switch_players()
         player.update_move_number(not is_undo)
         player.reset_move()
         return cells_to_reset
@@ -201,6 +251,25 @@ class GameState(QObject):
             value (bool): True to set the game as in progress, False otherwise.
         """
         self._game_in_progress = value
+
+    def exit_edit_mode(self):
+        self._edit_mode_params["enabled"] = False
+
+    @property
+    def piece_type_edit_mode(self):
+        return self._edit_mode_params["piece_type"]
+
+    @piece_type_edit_mode.setter
+    def piece_type_edit_mode(self, piece_type):
+        self._edit_mode_params["piece_type"] = piece_type
+
+    @property
+    def pressed_cell_edit_mode(self):
+        return self._edit_mode_params["pressed_cell"]
+
+    @pressed_cell_edit_mode.setter
+    def pressed_cell_edit_mode(self, cell):
+        self._edit_mode_params["pressed_cell"] = cell
 
     @property
     def is_winner_found(self):
@@ -328,7 +397,7 @@ class GameState(QObject):
             bool: True if the game is in its initial setup, False otherwise.
         """
         return len(self._game_moves) == 0
-
+        
     def abort_move(self):
         """
         Decreases the abort move counter.
@@ -357,6 +426,33 @@ class GameState(QObject):
         """
         return self._num_human_players == 1
 
+
+    def _check_winner_full_board(self):
+        """
+        Checks the entire board to see if there is a winner.
+        Returns the PieceType of the winner if there is one, else returns None.
+        """
+        size = self._board_size
+        board = self._board
+
+        # Directions: right, down, down-right, up-right
+        directions = [(0, 1), (1, 0), (1, 1), (-1, 1)]
+
+        for i in range(size):
+            for j in range(size):
+                current_piece = board[i][j]
+                if current_piece != PieceType.EMPTY:
+                    for dx, dy in directions:
+                        count = 1
+                        x, y = i + dx, j + dy
+
+                        while 0 <= x < size and 0 <= y < size and board[x][y] == current_piece:
+                            count += 1
+                            if count >= WIN_CONDITION:
+                                return current_piece
+                            x += dx
+                            y += dy
+        return None
 
     def _init_players_settings(self, settings: SettingsModel):
         """
@@ -413,6 +509,10 @@ class GameState(QObject):
                     self._players[piece_type.value].init_positions((i, j))
                 else:
                     self._board[i][j] = PieceType.EMPTY
+
+    def _update_board(self, from_pos, to_pos):
+        self._board[to_pos[0]][to_pos[1]] = self._board[from_pos[0]][from_pos[1]]
+        self._board[from_pos[0]][from_pos[1]] = PieceType.EMPTY
 
     def _handle_player_second_move(self, row, col, player, player_piece_type):
         """
@@ -493,3 +593,6 @@ class GameState(QObject):
         if move:
             self._cells_in_route.append(move["from"])
             self._cells_in_route.append(move["to"])
+
+    def _switch_players(self):
+        self._current_player_index = 1 - self._current_player_index

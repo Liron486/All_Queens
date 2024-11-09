@@ -20,6 +20,7 @@ class GameWindow(BackgroundWindow):
     key_pressed_signal = pyqtSignal()
     b_key_was_pressed_signal = pyqtSignal()
     p_key_was_pressed_signal = pyqtSignal()
+    enter_was_pressed_signal = pyqtSignal()
     player_click_signal = pyqtSignal(int, int)
     player_release_signal = pyqtSignal(int, int)
     player_hold_cell_signal = pyqtSignal(int, int)
@@ -81,9 +82,9 @@ class GameWindow(BackgroundWindow):
         Args:
             move (dict): A dictionary containing the move details with 'from' and 'to' coordinates.
         """
-        piece_type = self._board.get_cell_content(move["from"])
-        self._board.set_cell_content(move["from"], PieceType.EMPTY)
-        self._board.set_cell_content(move["to"], piece_type)
+        piece_type = self.get_cell_piece_type(move["from"])
+        self._set_cell(move["from"], PieceType.EMPTY)
+        self._set_cell(move["to"], piece_type)
 
     def keyPressEvent(self, event):
         """
@@ -101,6 +102,8 @@ class GameWindow(BackgroundWindow):
             B_KEY_HEBREW_VALUE: self.b_key_was_pressed_signal.emit,  # Hebrew B key
             Qt.Key_P: self.p_key_was_pressed_signal.emit,
             P_KEY_HEBREW_VALUE: self.p_key_was_pressed_signal.emit,  # Hebrew P key
+            Qt.Key_Return: lambda: (self.enter_was_pressed_signal.emit(), self.key_pressed_signal.emit()),  # Main Enter key
+            Qt.Key_Enter: lambda: (self.enter_was_pressed_signal.emit(), self.key_pressed_signal.emit()),   # Numpad Enter key
         }
 
         action = key_code_actions.get(event.key())
@@ -140,7 +143,7 @@ class GameWindow(BackgroundWindow):
             event (QMouseEvent): The mouse event.
         """
         if event.button() == Qt.LeftButton:
-            self._handle_click(-1, -1)  # Example behavior
+            self._handle_click(-1, -1)
 
     def start_new_game(self, board, players_data, cells_to_reset, game_number):
         """
@@ -182,6 +185,16 @@ class GameWindow(BackgroundWindow):
         self._press_timer.timeout.connect(self._handle_hold)
         self._press_timer.start(self._press_duration)
     
+    def pick_piece(self, cell):
+        print("picking piece ", cell)
+        self._set_cell(cell, PieceType.EMPTY)
+
+    def get_cell_piece_type(self, cell):
+        return self._board.get_cell_content(cell)
+
+    def _set_cell(self, cell, piece_type):
+        self._board.set_cell_content(cell, piece_type)
+
     def _handle_hold(self):
         """
         Handles a hold event by emitting the player_hold_cell_signal.
@@ -212,10 +225,8 @@ class GameWindow(BackgroundWindow):
                 if self._press_timer.isActive():
                     # The timer is still active, so it's a click
                     self._press_timer.stop()
-                    self._handle_release(target_row, target_col)
                 else:
-                    # The hold has already been handled; do nothing or handle additional logic
-                    pass
+                    self._handle_release(target_row, target_col)
             else:
                 self._handle_release(-1, -1)
 
@@ -243,7 +254,7 @@ class GameWindow(BackgroundWindow):
             row (int): The row of the clicked cell.
             col (int): The column of the clicked cell.
         """
-        print(f"Emitting player_release_signal for cell ({row}, {col})")
+        print(f"Emitting player_release_signal for cell ({row}, {col})")      
         self.player_release_signal.emit(row, col)
 
     def eventFilter(self, obj, event):

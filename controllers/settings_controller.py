@@ -104,11 +104,16 @@ class SettingsController(QObject):
         names_settings[idx] = new_name
         self._model.set_setting('names', names_settings)
 
+    def set_edit_mode(self):
+        edit_mode = self._model.get_setting('is_edit_mode')
+        self._model.set_setting('is_edit_mode', not edit_mode)
+        
     def _setup_connections(self):
         """
         Sets up the signal-slot connections between the view and the controller.
         """
         self._view.exit_full_screen_signal.connect(self.exit_full_screen)
+        self._view.e_key_was_pressed_signal.connect(self.set_edit_mode)
         self._view.number_of_players_changed.connect(self.set_number_of_real_players)
         self._view.difficulty_changed.connect(self.set_difficulty)
         self._view.name_changed.connect(self.set_name)

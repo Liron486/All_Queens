@@ -37,6 +37,8 @@ TEXTBOX_HEIGHT_RATIO = 0.025
 PLAY_BUTTON_WIDTH_RATIO = 0.03
 PLAY_BUTTON_HEIGHT_RATIO = 0.05
 
+E_KEY_HEBREW_VALUE = 1511
+
 def get_window_dpi(window):
     """
     Retrieves the DPI of the given window.
@@ -120,6 +122,7 @@ class SettingsWindow(BackgroundWindow):
     """
 
     exit_full_screen_signal = pyqtSignal()
+    e_key_was_pressed_signal = pyqtSignal()
     number_of_players_changed = pyqtSignal(str)
     difficulty_changed = pyqtSignal(str, int)
     name_changed = pyqtSignal(str, int)
@@ -484,6 +487,8 @@ class SettingsWindow(BackgroundWindow):
         self._logger.debug(f"Key pressed - {event.key()}")
         if event.key() == Qt.Key_Escape:
             self.exit_full_screen_signal.emit()
+        if event.key() == Qt.Key_E or event.key() == E_KEY_HEBREW_VALUE:
+            self.e_key_was_pressed_signal.emit()
         if event.key() == Qt.Key_Enter or event.key() == Qt.Key_Return:
             self._start_to_play()
 

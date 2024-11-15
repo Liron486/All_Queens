@@ -92,6 +92,12 @@ class Cell(QLabel):
         if event.button() == Qt.LeftButton:
             self.mouse_press_signal.emit(self._row, self._col)
 
+    def get_piece_pixmap(self):
+        """
+        Returns the scaled pixmap of the piece in the cell.
+        """
+        return self._get_scaled_pixmap()
+
     def resizeEvent(self, event):
         """
         Handles the resize event, updating the cell content to fit the new size.
@@ -180,6 +186,17 @@ class Cell(QLabel):
         """
         Updates the cell's content by adjusting the piece image to the current size of the cell.
         """
+        scaled_pixmap = self._get_scaled_pixmap()
+        if scaled_pixmap:
+            self._image_label.setPixmap(scaled_pixmap)
+        else:
+            self._image_label.clear()
+
+
+    def _get_scaled_pixmap(self):
+        """
+        Returns the pixmap of the piece in the cell, scaled to the cell's current size.
+        """
         if self._piece == PieceType.WHITE:
             pixmap = QPixmap(WHITE_PIECE_PATH)
         elif self._piece == PieceType.BLACK:
@@ -189,9 +206,9 @@ class Cell(QLabel):
 
         if pixmap:
             scaled_pixmap = pixmap.scaled(self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
-            self._image_label.setPixmap(scaled_pixmap)
+            return scaled_pixmap
         else:
-            self._image_label.clear()
+            return None
 
     def _adjust_color(self, hex_color):
         """

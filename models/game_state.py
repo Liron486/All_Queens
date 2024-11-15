@@ -57,7 +57,6 @@ class GameState(QObject):
 
     def edit_board_to(self, row, col):
         pressed_cell = self.pressed_cell_edit_mode
-        print("pressed_cell, row, col", pressed_cell, row, col)
         piece_type = self.piece_type_edit_mode
         self.piece_type_edit_mode = PieceType.EMPTY
         if (row == -1 and col == -1) or pressed_cell is None:

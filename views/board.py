@@ -48,6 +48,10 @@ class Board(QWidget):
         """
         return self._cells[cell].cell_content
 
+    def get_piece_pixmap(self, cell):
+        cell_widget = self._cells[cell]
+        return cell_widget.get_piece_pixmap()
+    
     def reset_cells_view(self, cells_to_reset):
         """
         Resets the view of the specified cells to their default state.

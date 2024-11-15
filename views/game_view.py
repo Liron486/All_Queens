@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import QVBoxLayout, QWidget, QSizePolicy, QLabel, QApplication
 from PyQt5.QtCore import pyqtSignal, QTimer, Qt, QEvent, QPoint
-from PyQt5.QtGui import QFont
+from PyQt5.QtGui import QFont, QCursor
 from views.board import Board
 from views.score import Score
 from utils import BackgroundWindow, PieceType, resource_path, DEFAULT_FONT
@@ -39,7 +39,7 @@ class GameWindow(BackgroundWindow):
         self._logger = get_logger(self.__class__.__name__)
         self._press_timer = QTimer(self)
         self._press_timer.setSingleShot(True)
-        self._press_duration = 500  # Duration in milliseconds to consider as a hold
+        self._press_duration = 80  # Duration in milliseconds to consider as a hold
         self._current_pressed_cell = None
         self._init_ui(players, game_number, board)
         self._setup_connections()
@@ -179,14 +179,19 @@ class GameWindow(BackgroundWindow):
             row (int): The row of the pressed cell.
             col (int): The column of the pressed cell.
         """
-        print(f"Cell pressed at ({row}, {col})")
         self._handle_click(row, col)
         self._current_pressed_cell = (row, col)
         self._press_timer.timeout.connect(self._handle_hold)
         self._press_timer.start(self._press_duration)
     
     def pick_piece(self, cell):
-        print("picking piece ", cell)
+        piece_type = self.get_cell_piece_type(cell)
+        if piece_type != PieceType.EMPTY:
+            # Set the cursor to the piece image
+            pixmap = self._board.get_piece_pixmap(cell)
+            if pixmap:
+                cursor = QCursor(pixmap)
+                QApplication.setOverrideCursor(cursor)
         self._set_cell(cell, PieceType.EMPTY)
 
     def get_cell_piece_type(self, cell):
@@ -201,7 +206,6 @@ class GameWindow(BackgroundWindow):
         """
         if self._current_pressed_cell:
             row, col = self._current_pressed_cell
-            print(f"Emitting player_hold_cell_signal for cell ({row}, {col})")
             self.player_hold_cell_signal.emit(row, col)
 
     def _handle_mouse_release(self, event):
@@ -220,7 +224,6 @@ class GameWindow(BackgroundWindow):
             target_cell = self._board.get_cell_at_position(board_pos)
             if target_cell:
                 target_row, target_col = target_cell.get_position()
-                print(f"Mouse released on cell ({target_row}, {target_col})")
 
                 if self._press_timer.isActive():
                     # The timer is still active, so it's a click
@@ -230,10 +233,10 @@ class GameWindow(BackgroundWindow):
             else:
                 self._handle_release(-1, -1)
 
-            print("disconnecting")
-            self._press_timer.timeout.disconnect(self._handle_hold)
             # Reset the current pressed cell regardless of where release happened
+            self._press_timer.timeout.disconnect(self._handle_hold)
             self._current_pressed_cell = None
+            QApplication.restoreOverrideCursor()
 
     def _handle_click(self, row, col):
         """
@@ -243,7 +246,6 @@ class GameWindow(BackgroundWindow):
             row (int): The row of the clicked cell.
             col (int): The column of the clicked cell.
         """
-        print(f"Emitting player_click_signal for cell ({row}, {col})")
         self.player_click_signal.emit(row, col)
 
     def _handle_release(self, row, col):
@@ -254,7 +256,6 @@ class GameWindow(BackgroundWindow):
             row (int): The row of the clicked cell.
             col (int): The column of the clicked cell.
         """
-        print(f"Emitting player_release_signal for cell ({row}, {col})")      
         self.player_release_signal.emit(row, col)
 
     def eventFilter(self, obj, event):

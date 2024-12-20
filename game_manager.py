@@ -33,6 +33,10 @@ class GameManager:
         self._settings_controller = SettingsController(self._settings_model, self._settings_view)
         self._welcome_controller = WelcomeController(self._welcome_view)
 
+        self._game_controller = None
+        self._game_state = None
+        self._game_view = None
+
         self._setup_connections()
 
     def start_game(self):
@@ -44,7 +48,8 @@ class GameManager:
         self._game_state = GameState(self._settings_model)
         self._game_view = GameWindow(self._game_state.players, self._game_state.game_number, self._game_state.board)
         self._game_controller = GameController(self._game_state, self._game_view)
-        self._settings_view.hide()
+        self._game_controller.back_to_settings_singal.connect(self.show_settings)
+        self._settings_controller.hide_screen()
         self._game_controller.show_full_screen()
 
     def show_settings(self):
@@ -52,6 +57,9 @@ class GameManager:
         Switches from the welcome view to the settings view, displaying the settings window in full-screen mode.
         """
         self._logger.debug("Switching to settings window")
+        if self._game_controller:
+            self._game_controller.hide_screen()
+            self._game_controller.back_to_settings_singal.disconnect(self.show_settings)
         self._welcome_controller.hide_screen()
         self._settings_controller.show_full_screen()
 

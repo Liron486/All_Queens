@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import QApplication
-from PyQt5.QtCore import pyqtSignal, QTimer
+from PyQt5.QtCore import QObject, pyqtSignal, QTimer
 from PyQt5.QtMultimedia import QSound
 from utils import PlayerType, resize_and_show_normal, resource_path
 from models.game_state import GameState
@@ -10,11 +10,13 @@ LOSING_SOUND_PATH = resource_path('resources/sounds/losing.wav')
 INVALID_MOVE_SOUND_PATH = resource_path('resources/sounds/invalid_move.wav')
 MILLISECONDS_IN_SECOND = 1000
 
-class GameController:
+class GameController(QObject):
     """
     Controls the flow of the game, manages interactions between the model (game state)
     and the view, handles player moves, and manages the game's sound effects.
     """
+
+    back_to_settings_singal = pyqtSignal()
 
     def __init__(self, game_state, view):
         """
@@ -25,10 +27,12 @@ class GameController:
             view (QWidget): The view associated with the game.
             is_edit_mode (bool): Whether the game is in edit mode.
         """
+        super().__init__()
         self._logger = get_logger(self.__class__.__name__)
         self._game_state = game_state
         self._view = view
         self._signal_connected = False
+        self._abort_game = False
         self._init_sounds()
         self._setup_connections()
         if self._game_state.is_edit_mode:
@@ -49,6 +53,10 @@ class GameController:
             self._view.start_new_game(state.board, state.players, route_to_reset, state.game_number)
             self._get_move_from_player()
 
+    def back_to_settings(self):
+        self._abort_game = True
+        self.back_to_settings_singal.emit()
+        
     def pause_game(self):
         """
         Pauses the game. If the game is paused, disconnects player move signal.
@@ -78,6 +86,12 @@ class GameController:
             self._view.player_click_signal.disconnect(self._handle_move_from_player)
             self._signal_connected = False
         state.player_wants_to_undo_last_move()
+
+    def hide_screen(self):
+        """
+        Hides the game view.
+        """
+        self._view.hide()
 
     def show_full_screen(self):
         """
@@ -143,6 +157,7 @@ class GameController:
         self._view.key_pressed_signal.connect(self.start_new_game)
         self._view.b_key_was_pressed_signal.connect(self.undo_last_move)
         self._view.p_key_was_pressed_signal.connect(self.pause_game)
+        self._view.back_was_pressed_signal.connect(self.back_to_settings)
         self._game_state.invalid_move_signal.connect(lambda: self._invalid_move_sound.play())
         self._game_state.piece_was_chosen_signal.connect(self.piece_was_chosen)
         self._game_state.player_finish_move_signal.connect(self.execute_move)
@@ -225,10 +240,11 @@ class GameController:
         self._move_finished(move)
 
     def _move_finished(self, move=None):
-        if self._game_state.check_for_winner(move):
-            self._handle_winner()
-        else:
-            self._get_move_from_player()
+        if not self._abort_game:
+            if self._game_state.check_for_winner(move):
+                self._handle_winner()
+            else:
+                self._get_move_from_player()
 
     def _should_abort_move(self, player_type, is_undo_move):
         """

@@ -1,10 +1,9 @@
 import sys
 import os
-from ctypes import windll, c_void_p
 from PyQt5.QtWidgets import QLabel, QPushButton, QVBoxLayout, QWidget, QSizePolicy, QHBoxLayout, QApplication, QSpacerItem, QLineEdit
 from PyQt5.QtCore import pyqtSignal, Qt
 from PyQt5.QtGui import QFont
-from utils import BackgroundWindow, resource_path, DEFAULT_FONT
+from utils import BackgroundWindow, resource_path, DEFAULT_FONT, get_window_dpi
 from logger import get_logger
 
 # Constants
@@ -38,19 +37,6 @@ PLAY_BUTTON_WIDTH_RATIO = 0.03
 PLAY_BUTTON_HEIGHT_RATIO = 0.05
 
 E_KEY_HEBREW_VALUE = 1511
-
-def get_window_dpi(window):
-    """
-    Retrieves the DPI of the given window.
-
-    Args:
-        window (QWidget): The window for which to get the DPI.
-
-    Returns:
-        int: The DPI of the window.
-    """
-    hwnd = c_void_p(int(window.winId()))
-    return windll.user32.GetDpiForWindow(hwnd)
 
 def get_sender_layout(sender):
     """
@@ -368,8 +354,8 @@ class SettingsWindow(BackgroundWindow):
         box_width_size = self.width() * TEXTBOX_WIDTH_RATIO * scaling_factor
         box_height_size = self.height() * TEXTBOX_HEIGHT_RATIO * scaling_factor
         first_player_textbox.setFixedSize(int(box_width_size), int(box_height_size))
-        textbox_font_size = int(box_height_size) * self._get_font_scaling_factor()
-        first_player_textbox.setFont(QFont(DEFAULT_FONT, int(textbox_font_size)))
+        textbox_font_size = int(int(box_height_size) * self._get_font_scaling_factor())
+        first_player_textbox.setFont(QFont(DEFAULT_FONT, textbox_font_size))
 
         second_player_item = players_names_layout.itemAt(1)
         second_player_label_item = second_player_item.itemAt(0)

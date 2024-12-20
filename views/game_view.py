@@ -1,12 +1,13 @@
-from PyQt5.QtWidgets import QVBoxLayout, QWidget, QSizePolicy, QLabel, QApplication
-from PyQt5.QtCore import pyqtSignal, QTimer, Qt, QEvent, QPoint
-from PyQt5.QtGui import QFont, QCursor
+from PyQt5.QtWidgets import QVBoxLayout, QWidget, QSizePolicy, QLabel, QApplication, QPushButton
+from PyQt5.QtCore import pyqtSignal, QTimer, Qt, QEvent, QPoint, QSize
+from PyQt5.QtGui import QFont, QCursor, QPixmap, QIcon
 from views.board import Board
 from views.score import Score
-from utils import BackgroundWindow, PieceType, resource_path, DEFAULT_FONT
+from utils import BackgroundWindow, PieceType, resource_path, DEFAULT_FONT, get_window_dpi
 from logger import get_logger
 
 GAME_BACKGROUND_IMAGE_PATH = resource_path('resources/images/game_background.png')
+BACK_ICON_IMAGE_PATH = resource_path('resources/images/back.png')
 
 B_KEY_HEBREW_VALUE = 1504
 P_KEY_HEBREW_VALUE = 1508
@@ -21,6 +22,7 @@ class GameWindow(BackgroundWindow):
     b_key_was_pressed_signal = pyqtSignal()
     p_key_was_pressed_signal = pyqtSignal()
     enter_was_pressed_signal = pyqtSignal()
+    back_was_pressed_signal = pyqtSignal()
     player_click_signal = pyqtSignal(int, int)
     player_release_signal = pyqtSignal(int, int)
     player_hold_cell_signal = pyqtSignal(int, int)
@@ -278,6 +280,8 @@ class GameWindow(BackgroundWindow):
         Sets up signal-slot connections for the board interactions.
         """
         self._board.cell_press_signal.connect(self.on_cell_pressed)
+        self._back_button.clicked.connect(self._back_button_clicked)
+
         # Removed connection to cell_release_signal
 
     def _init_ui(self, players, game_number, board):
@@ -291,37 +295,12 @@ class GameWindow(BackgroundWindow):
         """
         self.setWindowTitle('4 Queens')
         self._create_main_layout()
-
-        # Create the score component
-        self._score = Score(players, game_number)
-        self._score.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self._main_layout.addWidget(self._score, alignment=Qt.AlignTop | Qt.AlignHCenter)
-        
-        # Create the board component
-        self._board = Board(board)
-        self._board.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self._main_layout.addWidget(self._board, alignment=Qt.AlignCenter)
-
-        # Create winning text component
-        self._winning_text = QLabel("")
-        self._winning_text.setStyleSheet("color: black; font-weight: bold;")
-        self._winning_text.setFont(QFont(DEFAULT_FONT, 18))
-        self._winning_text.setAlignment(Qt.AlignCenter)
-        self._winning_text.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
-        self._main_layout.addWidget(self._winning_text)
-
-        # Initialize the pause overlay
-        self._pause_overlay = QLabel(self)
-        self._pause_overlay.setStyleSheet("background-color: rgba(0, 0, 0, 50);")
-        self._pause_overlay.setVisible(False)  # Initially hidden
-
-        # Create play again text component
-        self._play_again_text = QLabel("")
-        self._play_again_text.setStyleSheet("color: black;")
-        self._play_again_text.setFont(QFont(DEFAULT_FONT, 10))
-        self._play_again_text.setAlignment(Qt.AlignCenter)
-        self._play_again_text.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
-        self._main_layout.addWidget(self._play_again_text)
+        self._create_score_component(players, game_number)
+        self._create_back_button()
+        self._create_board_component(board)
+        self._create_winning_text_component()
+        self._create_pause_overlay()
+        self._create_play_again_text_component()
 
     def _create_main_layout(self):
         """
@@ -329,10 +308,120 @@ class GameWindow(BackgroundWindow):
         """
         central_widget = QWidget(self)
         self.setCentralWidget(central_widget)
-
         self._main_layout = QVBoxLayout(central_widget)
         self._main_layout.setAlignment(Qt.AlignTop)
 
+    def _create_score_component(self, players, game_number):
+        """
+        Creates the score component and adds it to the main layout.
+
+        Args:
+            players (list): List of players participating in the game.
+            game_number (int): The current game number.
+        """
+        self._score = Score(players, game_number)
+        self._score.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self._main_layout.addWidget(self._score, alignment=Qt.AlignTop | Qt.AlignHCenter)
+
+    def _create_back_button(self):
+        """
+        Creates the back button 
+        """
+        self._back_button = QPushButton(self)
+        scaling_factor = int(self._get_back_button_scaling_factor())
+        self._back_button.setFixedSize(scaling_factor, scaling_factor)
+        back_icon = QIcon(BACK_ICON_IMAGE_PATH)
+        self._back_button.setIcon(back_icon)
+        self._back_button.setIconSize(QSize(scaling_factor, scaling_factor))
+        self._back_button.setFlat(True)
+        self._back_button.setStyleSheet("background-color: transparent;")
+        self._back_button.setFocusPolicy(Qt.NoFocus)  # Disable focus for the back button
+        self._back_button.show()
+
+    def _create_board_component(self, board):
+        """
+        Creates the board component and adds it to the main layout.
+
+        Args:
+            board (list): The initial board setup as a 2D list.
+        """
+        self._board = Board(board)
+        self._board.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self._main_layout.addWidget(self._board, alignment=Qt.AlignCenter)
+
+    def _create_winning_text_component(self):
+        """
+        Creates the winning text component and adds it to the main layout.
+        """
+        self._winning_text = QLabel("")
+        self._winning_text.setStyleSheet("color: black; font-weight: bold;")
+        self._winning_text.setFont(QFont(DEFAULT_FONT, 18))
+        self._winning_text.setAlignment(Qt.AlignCenter)
+        self._winning_text.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        self._main_layout.addWidget(self._winning_text)
+
+    def _create_pause_overlay(self):
+        """
+        Initializes the pause overlay.
+        """
+        self._pause_overlay = QLabel(self)
+        self._pause_overlay.setStyleSheet("background-color: rgba(0, 0, 0, 50);")
+        self._pause_overlay.setVisible(False)
+
+    def _create_play_again_text_component(self):
+        """
+        Creates the play again text component and adds it to the main layout.
+        """
+        self._play_again_text = QLabel("")
+        self._play_again_text.setStyleSheet("color: black;")
+        self._play_again_text.setFont(QFont(DEFAULT_FONT, 10))
+        self._play_again_text.setAlignment(Qt.AlignCenter)
+        self._play_again_text.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        self._main_layout.addWidget(self._play_again_text)
+
+    def _get_back_button_scaling_factor(self):
+        dpi = get_window_dpi(self)
+        return (((dpi / 240.0) ** 0.5) * 30) ** 1.18
+
+    def _resize_elements(self):
+        """
+        Resizes and positions the elements within the game window based on the current size.
+        """
+        # Get screen dimensions
+        screen_geometry = QApplication.desktop().availableGeometry(self)
+        max_window_width = screen_geometry.width()
+        max_window_height = screen_geometry.height()
+
+        window_width = min(self.width(), max_window_width)
+        window_height = min(self.height(), max_window_height)
+
+        # Calculate the maximum size for the board and score
+        max_board_size = round(min(window_width * 0.85, window_height * 0.65))
+        self._board.setFixedSize(max_board_size, max_board_size)
+
+        # Set the score width to match the board width and adjust height proportionally
+        score_height = int(window_height * 0.2)
+        self._score.setFixedSize(max_board_size, score_height)
+
+        self._pause_overlay.setFixedSize(window_width, window_height)
+
+        # Position the back button relative to the score
+        score_geometry = self._score.geometry()
+        back_button_x = round(max(0, score_geometry.left() - (window_width * 0.08)))
+        back_button_y = round(score_geometry.top() + (score_geometry.height() - self._back_button.height()) // 2)  # Center vertically with score
+        self._back_button.move(back_button_x, back_button_y)
+        self._back_button.raise_()
+
+    def _back_button_clicked(self):
+        self.back_was_pressed_signal.emit()
+
+    def showEvent(self, event):
+        """
+        Called when the widget is shown. Ensures elements are resized after the window is displayed.
+        """
+        super().showEvent(event)
+        self._resize_elements()
+        
     def resizeEvent(self, event):
         """
         Handles the resize event, adjusting UI elements as necessary.
@@ -342,20 +431,3 @@ class GameWindow(BackgroundWindow):
         """
         super().resizeEvent(event)
         self._resize_elements()
-
-    def _resize_elements(self):
-        """
-        Resizes and positions the elements within the game window based on the current size.
-        """
-        window_width = self.width()
-        window_height = self.height()
-
-        # Calculate the maximum size for the board and score
-        max_board_size = min(window_width * 0.85, (window_height * 0.85) - (window_height * 0.2))
-        self._board.setFixedSize(max_board_size, max_board_size)
-
-        # Set the score width to match the board width and adjust height proportionally
-        score_height = int(window_height * 0.2)
-        self._score.setFixedSize(max_board_size, score_height)
-
-        self._pause_overlay.setFixedSize(window_width, window_height)

@@ -26,7 +26,6 @@ class WelcomeController(QObject):
         """
         Displays the welcome view in full-screen mode.
         """
-        self._view.show()
         self._view.showFullScreen()
 
     def hide_screen(self):

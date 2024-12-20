@@ -30,7 +30,6 @@ class SettingsController(QObject):
         """
         Displays the settings view in full-screen mode.
         """
-        self._view.show()
         self._view.showFullScreen()
 
     def hide_screen(self):

@@ -1,5 +1,6 @@
 import sys
 import os
+from ctypes import windll, c_void_p
 from PyQt5.QtWidgets import QWidget, QMainWindow, QLabel, QApplication
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import Qt
@@ -24,11 +25,24 @@ def resource_path(relative_path):
     """
     base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
     return os.path.join(base_path, relative_path)
-    
+
 # Constants for resource paths
 WHITE_PIECE_PATH = resource_path('resources/images/white.png')
 BLACK_PIECE_PATH = resource_path('resources/images/black.png')
 
+def get_window_dpi(window):
+    """
+    Retrieves the DPI of the given window.
+
+    Args:
+        window (QWidget): The window for which to get the DPI.
+
+    Returns:
+        int: The DPI of the window.
+    """
+    hwnd = c_void_p(int(window.winId()))
+    return windll.user32.GetDpiForWindow(hwnd)
+    
 class PlayerType(Enum):
     """
     Enumeration representing the types of players in the game.

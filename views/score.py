@@ -55,7 +55,7 @@ class ScoreModule(QWidget):
         """
         layout = QHBoxLayout() 
         layout.addLayout(self._create_player_info_label())
-        layout.addWidget(create_spacer_widget(self.width() * 0.015, self.height() * 0.02))
+        layout.addWidget(create_spacer_widget(int(self.width() * 0.015), int(self.height() * 0.02)))
         layout.addWidget(self._create_score_label())
         layout.addWidget(self._create_piece_pic())
 
@@ -246,7 +246,7 @@ class Score(QWidget):
 
         layout.addWidget(self._player1_score)
         layout.addWidget(self._game_number_module)
-        layout.addWidget(create_spacer_widget(self.width() * 0.078, self.height() * 0.1))
+        layout.addWidget(create_spacer_widget(int(self.width() * 0.078), int(self.height() * 0.1)))
         layout.addWidget(self._player2_score)
 
         self.setStyleSheet("border: 0px solid black;")

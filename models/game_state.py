@@ -86,6 +86,8 @@ class GameState(QObject):
         is_valid_cell = target_cell_piece_type is not PieceType.EMPTY
         if is_valid_cell:
             self.pressed_cell_edit_mode = (row, col)
+        else:
+            self.pressed_cell_edit_mode = None
 
         return is_valid_cell
 

@@ -455,14 +455,17 @@ class Player:
 
         This function tries to block the opponent's winning move by shuffling the list of potential winning moves and evaluating them.
         """
+        ret = None
         winning_moves = self._find_consecutive_moves(board, other_player_positions, other_player_type, board_size, WIN_CONDITION)
         if winning_moves:
             random.shuffle(winning_moves)
             for winning_move in winning_moves:
-                from_move, to_move = self._try_to_block_move(board, positions, winning_move[0], winning_move[1], board_size)
-                if from_move:
-                    return (from_move, to_move)
-        return None
+                blocking_moves = self._try_to_block_move(board, positions, winning_move[0], winning_move[1], board_size)
+                for from_move, to_move in blocking_moves:
+                    ret = (from_move, to_move)
+                    if self._evaluate_move(board, from_move, to_move, other_player_positions, other_player_type, board_size):
+                        break
+        return ret
 
 
     def _evaluate_move(
@@ -621,16 +624,17 @@ class Player:
             board_size (int): The size of the board.
 
         Returns:
-            tuple: The blocking piece and its new position, or (None, None) if no block is found.
+            list: The avaiable blocking pieces and its new positions, or empty list if no block is found.
         """
         cells = get_all_cells_in_route(from_move, to_move)
+        blocking_moves = []
         for cell in cells:
             for piece in positions:
                 available_moves = get_available_cells_to_move(board, piece, board_size)
                 for move in available_moves:
                     if cell == move:
-                        return piece, move
-        return None, None
+                        blocking_moves.append((piece, move))
+        return blocking_moves
 
     def _find_consecutive_moves(self, board, positions, piece_type, board_size, consecutive_needed):
         """

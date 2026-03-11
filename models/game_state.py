@@ -255,6 +255,8 @@ class GameState(QObject):
 
     def exit_edit_mode(self):
         self._edit_mode_params["enabled"] = False
+        for player in self._players:
+            player._first_turn_played = True
 
     @property
     def piece_type_edit_mode(self):

@@ -3,6 +3,8 @@ from typing import List, Tuple, Optional
 from utils import PieceType, WIN_CONDITION
 import copy
 import random
+import time
+import bisect 
 
 AI_MOVE_WAITING_TIME = 1.5
 
@@ -566,7 +568,6 @@ class Player:
             raise ValueError("No available moves to make.")
 
 
-        
     def _check_if_opponent_can_win(self, board, piece_pos, to_move, other_player_positions, other_player_type, board_size):
         """
         Checks if the opponent can win after the current player makes a move.
@@ -657,7 +658,20 @@ class Player:
                     moves_for_consecutive.append((position, to_move, consec_list))   
         return moves_for_consecutive
 
-    
+    def _apply_move(self, board, positions, from_move, to_move, piece_type):
+        self._change_piece_pos(board, from_move, to_move, piece_type)
+        positions.remove(from_move)
+        positions.append(to_move)
+
+    def _undo_move(self, board, positions, from_move, to_move, piece_type):
+        self._change_piece_pos(board, to_move, from_move, piece_type)
+        positions.remove(to_move)
+        positions.append(from_move)
+
+    def _board_key(self, board, piece_type_to_move):
+        flat = tuple(cell.value for row in board for cell in row)
+        return (piece_type_to_move.value, flat)
+
 class HumanPlayer(Player):
     """
     The HumanPlayer class represents a human player in the game, inheriting from the Player class.
@@ -878,9 +892,7 @@ class AiPlayerMedium(Player):
         moves_for_3 = self._find_consecutive_moves(board, positions, piece_type, board_size, 3)
         for from_move, to_move, consec_pieces in moves_for_3:
             points_that_win = self._get_consecutive_extensions(consec_pieces, board_size)
-            self._change_piece_pos(board, from_move, to_move, piece_type)
-            positions_cp.remove(from_move)
-            positions_cp.append(to_move)
+            self._apply_move(board, positions_cp, from_move, to_move, piece_type)
             if len(points_that_win) == 2:
                 options_to_win = self._available_extentions(board, positions_cp, board_size, points_that_win, consec_pieces)
                 if options_to_win == 2:
@@ -899,9 +911,7 @@ class AiPlayerMedium(Player):
                         optional_moves.append((from_move, to_move, 1))
                     else:
                         optional_moves.append((from_move, to_move, 2))
-            self._change_piece_pos(board, to_move, from_move, piece_type)
-            positions_cp.remove(to_move)
-            positions_cp.append(from_move)
+            self._undo_move(board, positions_cp, from_move, to_move, piece_type)
 
         new_move = None
         winning_options = None
@@ -959,3 +969,1136 @@ class AiPlayerMedium(Player):
         self.set_move_waiting_time(AI_MOVE_WAITING_TIME)
         self._first_turn_played = True
         return copy.deepcopy(self._move)
+
+
+class AiPlayerHard(Player):
+    """
+    Hard AI using bitboards internally.
+
+    Features:
+    - bitboard representation
+    - fast legal move generation with precomputed rays
+    - immediate win detection
+    - safe block detection
+    - double-threat creation detection
+    - alpha-beta negamax
+    - tactical extension in sharp positions
+    - profiling summary per move
+    """
+
+    WIN_SCORE = 10_000_000
+    DRAW_SCORE = 0
+
+    CENTER_WEIGHT = 6
+    IMMEDIATE_WIN_BONUS = 120_000
+    DOUBLE_THREAT_BONUS = 80_000
+    FORCED_THREAT_BONUS = 25_000
+    REACHABLE_EMPTY_BONUS = 12
+    UNREACHABLE_EMPTY_PENALTY = 8
+
+    LINE_SCORES = {
+        0: 0,
+        1: 8,
+        2: 40,
+        3: 400,
+    }
+
+    PROFILE_ENABLED = True
+    PROFILE_PRINT_EVERY_MOVE = True
+
+    TACTICAL_EXTENSION_LIMIT = 1
+
+    def __init__(self, name, player_type, difficulty, piece_type, piece_path, search_depth=4):
+        super().__init__(name, player_type, difficulty, piece_type, piece_path)
+        self._search_depth = search_depth
+
+        self._line_cache = {}
+        self._rays_cache = {}
+        self._windows_by_sq_cache = {}
+        self._rc_to_sq_cache = {}
+        self._sq_to_rc_cache = {}
+
+        self._eval_cache = {}
+        self._move_cache = {}
+        self._tactical_cache = {}
+
+        self._prof = {}
+        self._prof_counts = {}
+        self._prof_counters = {}
+
+    # ------------------------------------------------------------------
+    # Profiling helpers
+    # ------------------------------------------------------------------
+
+    def _prof_reset(self):
+        self._prof = {}
+        self._prof_counts = {}
+        self._prof_counters = {}
+
+    def _prof_add(self, name, elapsed):
+        if not self.PROFILE_ENABLED:
+            return
+        self._prof[name] = self._prof.get(name, 0.0) + elapsed
+        self._prof_counts[name] = self._prof_counts.get(name, 0) + 1
+
+    def _prof_inc(self, name, amount=1):
+        if not self.PROFILE_ENABLED:
+            return
+        self._prof_counters[name] = self._prof_counters.get(name, 0) + amount
+
+    def _prof_print_summary(self, total_elapsed, chosen_move):
+        if not self.PROFILE_ENABLED or not self.PROFILE_PRINT_EVERY_MOVE:
+            return
+
+        print("\n" + "=" * 72)
+        print(f"[AiPlayerHard] move summary | depth={self._search_depth} | move={chosen_move} | total={total_elapsed:.6f}s")
+        print("-" * 72)
+
+        rows = []
+        for name, total in self._prof.items():
+            calls = self._prof_counts.get(name, 0)
+            avg = total / calls if calls else 0.0
+            rows.append((total, name, calls, avg))
+
+        rows.sort(reverse=True)
+
+        print(f"{'function':35} {'calls':>10} {'total(s)':>12} {'avg(ms)':>12}")
+        for total, name, calls, avg in rows:
+            print(f"{name:35} {calls:10d} {total:12.6f} {avg * 1000:12.3f}")
+
+        if self._prof_counters:
+            print("-" * 72)
+            print("counters:")
+            for key in sorted(self._prof_counters.keys()):
+                print(f"  {key}: {self._prof_counters[key]}")
+        print("=" * 72)
+
+    # ------------------------------------------------------------------
+    # Main entry
+    # ------------------------------------------------------------------
+
+    def make_move(self, board, other_player_positions, board_size):
+        total_start = time.perf_counter()
+        self._prof_reset()
+
+        self._move_cache = {}
+        self._eval_cache = {}
+        self._tactical_cache = {}
+
+        self._ensure_precomputed(board_size)
+
+        white_bits, black_bits, white_positions, black_positions = self._board_to_bitboards(board, board_size)
+
+        if self._piece_type == PieceType.WHITE:
+            my_bits = white_bits
+            my_positions = white_positions
+            opp_bits = black_bits
+            opp_positions = black_positions
+        else:
+            my_bits = black_bits
+            my_positions = black_positions
+            opp_bits = white_bits
+            opp_positions = white_positions
+
+        # 1) immediate win
+        t0 = time.perf_counter()
+        winning_moves = self._get_winning_moves_bits(my_bits, my_positions, opp_bits, board_size)
+        self._prof_add("_get_winning_moves_bits", time.perf_counter() - t0)
+        if winning_moves:
+            best_move_sq = self._order_candidate_moves_bits(
+                winning_moves, my_bits, my_positions, opp_bits, opp_positions, board_size
+            )[0]
+            from_rc = self._sq_to_rc(best_move_sq[0], board_size)
+            to_rc = self._sq_to_rc(best_move_sq[1], board_size)
+            self._set_move(from_rc, to_rc)
+
+            elapsed = time.perf_counter() - total_start
+            self.set_move_waiting_time(max(0.0, AI_MOVE_WAITING_TIME - elapsed))
+            self._first_turn_played = True
+            self._prof_print_summary(elapsed, (from_rc, to_rc))
+            return copy.deepcopy(self._move)
+
+        # 2) immediate safe block
+        t0 = time.perf_counter()
+        safe_blockers = self._get_safe_blocking_moves_bits(
+            my_bits, my_positions, opp_bits, opp_positions, board_size
+        )
+        self._prof_add("_get_safe_blocking_moves_bits", time.perf_counter() - t0)
+        if safe_blockers:
+            best_move_sq = self._order_candidate_moves_bits(
+                safe_blockers, my_bits, my_positions, opp_bits, opp_positions, board_size
+            )[0]
+            from_rc = self._sq_to_rc(best_move_sq[0], board_size)
+            to_rc = self._sq_to_rc(best_move_sq[1], board_size)
+            self._set_move(from_rc, to_rc)
+
+            elapsed = time.perf_counter() - total_start
+            self.set_move_waiting_time(max(0.0, AI_MOVE_WAITING_TIME - elapsed))
+            self._first_turn_played = True
+            self._prof_print_summary(elapsed, (from_rc, to_rc))
+            return copy.deepcopy(self._move)
+
+        # 3) full search
+        tt = {}
+        t0 = time.perf_counter()
+        _, best_move_sq = self._search_root_bits(
+            current_bits=my_bits,
+            current_positions=my_positions,
+            other_bits=opp_bits,
+            other_positions=opp_positions,
+            board_size=board_size,
+            depth=self._search_depth,
+            extensions_left=self.TACTICAL_EXTENSION_LIMIT,
+            tt=tt
+        )
+        self._prof_add("_search_root_bits", time.perf_counter() - t0)
+
+        from_rc = self._sq_to_rc(best_move_sq[0], board_size)
+        to_rc = self._sq_to_rc(best_move_sq[1], board_size)
+        self._set_move(from_rc, to_rc)
+
+        elapsed = time.perf_counter() - total_start
+        self.set_move_waiting_time(max(0.0, AI_MOVE_WAITING_TIME - elapsed))
+        self._first_turn_played = True
+
+        self._prof_print_summary(elapsed, (from_rc, to_rc))
+        return copy.deepcopy(self._move)
+
+    # ------------------------------------------------------------------
+    # Search
+    # ------------------------------------------------------------------
+
+    def _search_root_bits(
+        self,
+        current_bits,
+        current_positions,
+        other_bits,
+        other_positions,
+        board_size,
+        depth,
+        extensions_left,
+        tt
+    ):
+        alpha = -float("inf")
+        beta = float("inf")
+
+        best_score = -float("inf")
+        best_moves = []
+
+        t0 = time.perf_counter()
+        moves = self._get_search_moves_bits(
+            current_bits, current_positions, other_bits, other_positions, board_size
+        )
+        self._prof_add("_get_search_moves_bits", time.perf_counter() - t0)
+
+        for from_sq, to_sq in moves:
+            t0 = time.perf_counter()
+            score = self._score_move_bits(
+                current_bits=current_bits,
+                current_positions=current_positions,
+                other_bits=other_bits,
+                other_positions=other_positions,
+                from_sq=from_sq,
+                to_sq=to_sq,
+                board_size=board_size,
+                depth=depth,
+                extensions_left=extensions_left,
+                alpha=alpha,
+                beta=beta,
+                ply=1,
+                tt=tt,
+                path_keys=set()
+            )
+            self._prof_add("_score_move_bits", time.perf_counter() - t0)
+
+            if score > best_score:
+                best_score = score
+                best_moves = [(from_sq, to_sq)]
+            elif score == best_score:
+                best_moves.append((from_sq, to_sq))
+
+            if score > alpha:
+                alpha = score
+
+        chosen_move = random.choice(best_moves) if best_moves else None
+        return best_score, chosen_move
+
+    def _score_move_bits(
+        self,
+        current_bits,
+        current_positions,
+        other_bits,
+        other_positions,
+        from_sq,
+        to_sq,
+        board_size,
+        depth,
+        extensions_left,
+        alpha,
+        beta,
+        ply,
+        tt,
+        path_keys
+    ):
+        new_current_bits, new_current_positions = self._apply_move_bits(current_bits, current_positions, from_sq, to_sq)
+
+        if self._is_win_after_move_bits(new_current_bits, to_sq, board_size):
+            return self.WIN_SCORE - ply
+
+        t0 = time.perf_counter()
+        score = -self._negamax_bits(
+            current_bits=other_bits,
+            current_positions=other_positions,
+            other_bits=new_current_bits,
+            other_positions=new_current_positions,
+            board_size=board_size,
+            depth=depth - 1,
+            extensions_left=extensions_left,
+            alpha=-beta,
+            beta=-alpha,
+            ply=ply + 1,
+            tt=tt,
+            path_keys=path_keys
+        )
+        self._prof_add("_negamax_bits", time.perf_counter() - t0)
+
+        return score
+
+    def _negamax_bits(
+        self,
+        current_bits,
+        current_positions,
+        other_bits,
+        other_positions,
+        board_size,
+        depth,
+        extensions_left,
+        alpha,
+        beta,
+        ply,
+        tt,
+        path_keys
+    ):
+        state_key = (current_bits, other_bits, depth, extensions_left)
+
+        if state_key in path_keys:
+            self._prof_inc("repetition_draws")
+            return self.DRAW_SCORE
+
+        tt_entry = tt.get(state_key)
+        if tt_entry is not None:
+            self._prof_inc("tt_hits")
+            return tt_entry
+        self._prof_inc("tt_misses")
+
+        if depth == 0:
+            if extensions_left > 0 and self._is_sharp_position_bits(
+                current_bits, current_positions, other_bits, other_positions, board_size
+            ):
+                depth = 1
+                extensions_left -= 1
+            else:
+                t0 = time.perf_counter()
+                score = self._evaluate_position_bits(
+                    current_bits, current_positions, other_bits, other_positions, board_size
+                )
+                self._prof_add("_evaluate_position_bits", time.perf_counter() - t0)
+                tt[state_key] = score
+                return score
+
+        t0 = time.perf_counter()
+        moves = self._get_search_moves_bits(
+            current_bits, current_positions, other_bits, other_positions, board_size
+        )
+        self._prof_add("_get_search_moves_bits", time.perf_counter() - t0)
+
+        best_score = -float("inf")
+        path_keys.add(state_key)
+
+        for from_sq, to_sq in moves:
+            t0 = time.perf_counter()
+            score = self._score_move_bits(
+                current_bits=current_bits,
+                current_positions=current_positions,
+                other_bits=other_bits,
+                other_positions=other_positions,
+                from_sq=from_sq,
+                to_sq=to_sq,
+                board_size=board_size,
+                depth=depth,
+                extensions_left=extensions_left,
+                alpha=alpha,
+                beta=beta,
+                ply=ply,
+                tt=tt,
+                path_keys=path_keys
+            )
+            self._prof_add("_score_move_bits", time.perf_counter() - t0)
+
+            if score > best_score:
+                best_score = score
+
+            if best_score > alpha:
+                alpha = best_score
+
+            if alpha >= beta:
+                self._prof_inc("alpha_beta_cutoffs")
+                break
+
+        path_keys.remove(state_key)
+        tt[state_key] = best_score
+        return best_score
+
+    # ------------------------------------------------------------------
+    # Search move selection
+    # ------------------------------------------------------------------
+
+    def _get_search_moves_bits(
+        self,
+        current_bits,
+        current_positions,
+        other_bits,
+        other_positions,
+        board_size
+    ):
+        winning_moves = self._get_winning_moves_bits(
+            current_bits, current_positions, other_bits, board_size
+        )
+        if winning_moves:
+            return self._order_candidate_moves_bits(
+                winning_moves, current_bits, current_positions, other_bits, other_positions, board_size
+            )
+
+        safe_blockers = self._get_safe_blocking_moves_bits(
+            current_bits, current_positions, other_bits, other_positions, board_size
+        )
+        if safe_blockers:
+            return self._order_candidate_moves_bits(
+                safe_blockers, current_bits, current_positions, other_bits, other_positions, board_size
+            )
+
+        double_threat_moves = self._get_double_threat_moves_bits(
+            current_bits, current_positions, other_bits, board_size
+        )
+        if double_threat_moves:
+            return self._order_candidate_moves_bits(
+                double_threat_moves, current_bits, current_positions, other_bits, other_positions, board_size
+            )
+
+        return self._generate_ordered_moves_bits(
+            current_bits, current_positions, other_bits, other_positions, board_size
+        )
+
+    def _generate_ordered_moves_bits(
+        self,
+        current_bits,
+        current_positions,
+        other_bits,
+        other_positions,
+        board_size
+    ):
+        all_legal = self._get_all_legal_moves_bits(
+            current_bits, current_positions, other_bits, board_size
+        )
+        return self._order_candidate_moves_bits(
+            all_legal, current_bits, current_positions, other_bits, other_positions, board_size
+        )
+
+    def _order_candidate_moves_bits(
+        self,
+        candidate_moves,
+        current_bits,
+        current_positions,
+        other_bits,
+        other_positions,
+        board_size
+    ):
+        if not candidate_moves:
+            return []
+
+        occ_bits = current_bits | other_bits
+        opp_targets_mask = self._get_immediate_win_targets_bits(
+            other_bits, other_positions, current_bits, board_size
+        )
+        center = (board_size - 1) / 2.0
+
+        scored = []
+
+        for from_sq, to_sq in candidate_moves:
+            score = 0
+
+            new_current_bits, new_current_positions = self._apply_move_bits(
+                current_bits, current_positions, from_sq, to_sq
+            )
+
+            if self._is_win_after_move_bits(new_current_bits, to_sq, board_size):
+                score += 2_000_000
+
+            opp_targets_after = self._get_immediate_win_targets_bits(
+                other_bits, other_positions, new_current_bits, board_size
+            )
+            if opp_targets_after == 0:
+                score += 300_000
+
+            my_targets_after = self._get_immediate_win_targets_bits(
+                new_current_bits, new_current_positions, other_bits, board_size
+            )
+            score += my_targets_after.bit_count() * 50_000
+
+            if opp_targets_mask & (1 << to_sq):
+                score += 20_000
+
+            r, c = self._sq_to_rc(sq=to_sq, board_size=board_size)
+            score -= int(abs(r - center) + abs(c - center)) * 3
+
+            scored.append((score, from_sq, to_sq))
+
+        scored.sort(reverse=True, key=lambda x: x[0])
+        return [(from_sq, to_sq) for score, from_sq, to_sq in scored]
+
+    # ------------------------------------------------------------------
+    # Evaluation
+    # ------------------------------------------------------------------
+
+    def _evaluate_position_bits(
+        self,
+        current_bits,
+        current_positions,
+        other_bits,
+        other_positions,
+        board_size
+    ):
+        key = ("eval_bits", current_bits, other_bits)
+        cached = self._eval_cache.get(key)
+        if cached is not None:
+            self._prof_inc("eval_cache_hits")
+            return cached
+        self._prof_inc("eval_cache_misses")
+
+        score = 0
+
+        my_win_targets_mask = self._get_immediate_win_targets_bits(
+            current_bits, current_positions, other_bits, board_size
+        )
+        opp_win_targets_mask = self._get_immediate_win_targets_bits(
+            other_bits, other_positions, current_bits, board_size
+        )
+
+        my_distinct = my_win_targets_mask.bit_count()
+        opp_distinct = opp_win_targets_mask.bit_count()
+
+        if my_distinct >= 1:
+            score += self.IMMEDIATE_WIN_BONUS
+        if opp_distinct >= 1:
+            score -= self.IMMEDIATE_WIN_BONUS
+
+        if my_distinct >= 2:
+            score += self.DOUBLE_THREAT_BONUS
+        if opp_distinct >= 2:
+            score -= self.DOUBLE_THREAT_BONUS
+
+        my_double_threat_moves = self._get_double_threat_moves_bits(
+            current_bits, current_positions, other_bits, board_size
+        )
+        opp_double_threat_moves = self._get_double_threat_moves_bits(
+            other_bits, other_positions, current_bits, board_size
+        )
+
+        if my_double_threat_moves:
+            score += self.DOUBLE_THREAT_BONUS // 2
+        if opp_double_threat_moves:
+            score -= self.DOUBLE_THREAT_BONUS // 2
+
+        if self._opponent_has_forced_threat_next_turn_bits(
+            current_bits, current_positions, other_bits, other_positions, board_size
+        ):
+            score -= self.FORCED_THREAT_BONUS
+
+        if self._opponent_has_forced_threat_next_turn_bits(
+            other_bits, other_positions, current_bits, current_positions, board_size
+        ):
+            score += self.FORCED_THREAT_BONUS
+
+        line_windows = self._get_line_windows(board_size)
+
+        my_reachable_mask = self._get_reachable_targets_mask_bits(
+            current_bits, current_positions, other_bits, board_size
+        )
+        opp_reachable_mask = self._get_reachable_targets_mask_bits(
+            other_bits, other_positions, current_bits, board_size
+        )
+
+        full_mask = (1 << (board_size * board_size)) - 1
+        occ_bits = current_bits | other_bits
+        empty_bits = full_mask ^ occ_bits
+
+        for mask, _ in line_windows:
+            my_count = (current_bits & mask).bit_count()
+            opp_count = (other_bits & mask).bit_count()
+
+            if my_count > 0 and opp_count > 0:
+                continue
+
+            empty_in_window = mask & empty_bits
+            empty_count = empty_in_window.bit_count()
+
+            if opp_count == 0:
+                score += self.LINE_SCORES[my_count]
+                reachable = (empty_in_window & my_reachable_mask).bit_count()
+                score += reachable * self.REACHABLE_EMPTY_BONUS
+                score -= (empty_count - reachable) * self.UNREACHABLE_EMPTY_PENALTY
+
+            elif my_count == 0:
+                score -= self.LINE_SCORES[opp_count]
+                reachable = (empty_in_window & opp_reachable_mask).bit_count()
+                score -= reachable * self.REACHABLE_EMPTY_BONUS
+                score += (empty_count - reachable) * self.UNREACHABLE_EMPTY_PENALTY
+
+        center = (board_size - 1) / 2.0
+        my_center = 0
+        opp_center = 0
+
+        for sq in current_positions:
+            r, c = self._sq_to_rc(sq, board_size)
+            my_center -= abs(r - center) + abs(c - center)
+        for sq in other_positions:
+            r, c = self._sq_to_rc(sq, board_size)
+            opp_center -= abs(r - center) + abs(c - center)
+
+        score += int((my_center - opp_center) * self.CENTER_WEIGHT)
+
+        self._eval_cache[key] = score
+        return score
+
+    # ------------------------------------------------------------------
+    # Sharp state detection
+    # ------------------------------------------------------------------
+
+    def _is_sharp_position_bits(
+        self,
+        current_bits,
+        current_positions,
+        other_bits,
+        other_positions,
+        board_size
+    ):
+        key = ("sharp_bits", current_bits, other_bits)
+        cached = self._tactical_cache.get(key)
+        if cached is not None:
+            return cached
+
+        result = False
+
+        if self._get_immediate_win_targets_bits(current_bits, current_positions, other_bits, board_size):
+            result = True
+        elif self._get_immediate_win_targets_bits(other_bits, other_positions, current_bits, board_size):
+            result = True
+        elif self._has_open_three_window_bits(current_bits, other_bits, board_size):
+            result = True
+        elif self._has_open_three_window_bits(other_bits, current_bits, board_size):
+            result = True
+
+        self._tactical_cache[key] = result
+        return result
+
+    # ------------------------------------------------------------------
+    # Tactical helpers
+    # ------------------------------------------------------------------
+
+    def _get_winning_moves_bits(
+        self,
+        current_bits,
+        current_positions,
+        other_bits,
+        board_size
+    ):
+        key = ("winning_moves_bits", current_bits, other_bits)
+        cached = self._tactical_cache.get(key)
+        if cached is not None:
+            self._prof_inc("winning_moves_cache_hits")
+            return cached
+
+        self._prof_inc("winning_moves_cache_misses")
+
+        targets_mask = self._get_immediate_win_targets_bits(
+            current_bits, current_positions, other_bits, board_size
+        )
+
+        moves = []
+        for target_sq in self._iter_bits(targets_mask):
+            moves.extend(
+                self._get_moves_to_target_bits(
+                    current_bits, current_positions, other_bits, target_sq, board_size
+                )
+            )
+
+        self._tactical_cache[key] = moves
+        return moves
+
+    def _get_safe_blocking_moves_bits(
+        self,
+        my_bits,
+        my_positions,
+        opp_bits,
+        opp_positions,
+        board_size
+    ):
+        key = ("safe_blockers_bits", my_bits, opp_bits)
+        cached = self._tactical_cache.get(key)
+        if cached is not None:
+            self._prof_inc("safe_blockers_cache_hits")
+            return cached
+
+        self._prof_inc("safe_blockers_cache_misses")
+
+        opp_targets_mask = self._get_immediate_win_targets_bits(
+            opp_bits, opp_positions, my_bits, board_size
+        )
+
+        if opp_targets_mask == 0:
+            self._tactical_cache[key] = []
+            return []
+
+        safe_moves = []
+        all_legal = self._get_all_legal_moves_bits(my_bits, my_positions, opp_bits, board_size)
+
+        for from_sq, to_sq in all_legal:
+            new_my_bits, new_my_positions = self._apply_move_bits(
+                my_bits, my_positions, from_sq, to_sq
+            )
+
+            opp_targets_after = self._get_immediate_win_targets_bits(
+                opp_bits, opp_positions, new_my_bits, board_size
+            )
+
+            if opp_targets_after == 0:
+                safe_moves.append((from_sq, to_sq))
+
+        self._tactical_cache[key] = safe_moves
+        return safe_moves
+
+    def _get_double_threat_moves_bits(
+        self,
+        current_bits,
+        current_positions,
+        other_bits,
+        board_size
+    ):
+        key = ("double_threat_moves_bits", current_bits, other_bits)
+        cached = self._tactical_cache.get(key)
+        if cached is not None:
+            self._prof_inc("double_threat_moves_cache_hits")
+            return cached
+
+        self._prof_inc("double_threat_moves_cache_misses")
+
+        all_legal = self._get_all_legal_moves_bits(
+            current_bits, current_positions, other_bits, board_size
+        )
+
+        moves = []
+        for from_sq, to_sq in all_legal:
+            new_current_bits, new_current_positions = self._apply_move_bits(
+                current_bits, current_positions, from_sq, to_sq
+            )
+
+            if self._is_win_after_move_bits(new_current_bits, to_sq, board_size):
+                moves.append((from_sq, to_sq))
+                continue
+
+            targets_after = self._get_immediate_win_targets_bits(
+                new_current_bits, new_current_positions, other_bits, board_size
+            )
+
+            if targets_after.bit_count() >= 2:
+                moves.append((from_sq, to_sq))
+
+        self._tactical_cache[key] = moves
+        return moves
+
+    def _opponent_has_forced_threat_next_turn_bits(
+        self,
+        current_bits,
+        current_positions,
+        other_bits,
+        other_positions,
+        board_size
+    ):
+        key = ("forced_bits", current_bits, other_bits)
+        cached = self._tactical_cache.get(key)
+        if cached is not None:
+            self._prof_inc("forced_cache_hits")
+            return cached
+
+        self._prof_inc("forced_cache_misses")
+
+        result = self._has_forcing_move_bits(
+            other_bits, other_positions, current_bits, current_positions, board_size
+        )
+
+        self._tactical_cache[key] = result
+        return result
+
+    def _has_forcing_move_bits(
+        self,
+        current_bits,
+        current_positions,
+        other_bits,
+        other_positions,
+        board_size
+    ):
+        if self._get_winning_moves_bits(current_bits, current_positions, other_bits, board_size):
+            return True
+
+        return bool(
+            self._get_double_threat_moves_bits(current_bits, current_positions, other_bits, board_size)
+        )
+
+    def _has_open_three_window_bits(self, current_bits, other_bits, board_size):
+        line_windows = self._get_line_windows(board_size)
+
+        for mask, _ in line_windows:
+            my_count = (current_bits & mask).bit_count()
+            opp_count = (other_bits & mask).bit_count()
+
+            if opp_count == 0 and my_count >= 3:
+                return True
+            if my_count == 0 and opp_count >= 3:
+                return True
+
+        return False
+
+    # ------------------------------------------------------------------
+    # Immediate win targets / reachability
+    # ------------------------------------------------------------------
+
+    def _get_immediate_win_targets_bits(
+        self,
+        current_bits,
+        current_positions,
+        other_bits,
+        board_size
+    ):
+        key = ("win_targets_bits", current_bits, other_bits)
+        cached = self._tactical_cache.get(key)
+        if cached is not None:
+            self._prof_inc("win_targets_cache_hits")
+            return cached
+
+        self._prof_inc("win_targets_cache_misses")
+
+        target_to_movers = self._get_target_to_movers_bits(
+            current_bits, current_positions, other_bits, board_size
+        )
+        windows_by_sq = self._get_windows_by_sq(board_size)
+
+        result_mask = 0
+
+        for target_sq, movers_mask in target_to_movers.items():
+            for _, other_mask in windows_by_sq[target_sq]:
+                if (current_bits & other_mask) != other_mask:
+                    continue
+
+                if movers_mask & ~other_mask:
+                    result_mask |= (1 << target_sq)
+                    break
+
+        self._tactical_cache[key] = result_mask
+        return result_mask
+
+    def _get_target_to_movers_bits(
+        self,
+        current_bits,
+        current_positions,
+        other_bits,
+        board_size
+    ):
+        key = ("target_to_movers", current_bits, other_bits)
+        cached = self._tactical_cache.get(key)
+        if cached is not None:
+            self._prof_inc("target_to_movers_cache_hits")
+            return cached
+
+        self._prof_inc("target_to_movers_cache_misses")
+
+        occ_bits = current_bits | other_bits
+        target_to_movers = {}
+
+        for from_sq in current_positions:
+            from_mask = 1 << from_sq
+            moves = self._get_cached_available_moves_bits(occ_bits, from_sq, board_size)
+
+            for target_sq in moves:
+                target_to_movers[target_sq] = target_to_movers.get(target_sq, 0) | from_mask
+
+        self._tactical_cache[key] = target_to_movers
+        return target_to_movers
+
+    def _get_reachable_targets_mask_bits(
+        self,
+        current_bits,
+        current_positions,
+        other_bits,
+        board_size
+    ):
+        key = ("reachmask_bits", current_bits, other_bits)
+        cached = self._tactical_cache.get(key)
+        if cached is not None:
+            self._prof_inc("reachmask_cache_hits")
+            return cached
+
+        self._prof_inc("reachmask_cache_misses")
+
+        target_to_movers = self._get_target_to_movers_bits(
+            current_bits, current_positions, other_bits, board_size
+        )
+
+        mask = 0
+        for target_sq in target_to_movers.keys():
+            mask |= (1 << target_sq)
+
+        self._tactical_cache[key] = mask
+        return mask
+
+    def _get_moves_to_target_bits(
+        self,
+        current_bits,
+        current_positions,
+        other_bits,
+        target_sq,
+        board_size
+    ):
+        target_to_movers = self._get_target_to_movers_bits(
+            current_bits, current_positions, other_bits, board_size
+        )
+        movers_mask = target_to_movers.get(target_sq, 0)
+        return [(from_sq, target_sq) for from_sq in self._iter_bits(movers_mask)]
+
+    # ------------------------------------------------------------------
+    # Legal moves
+    # ------------------------------------------------------------------
+
+    def _get_all_legal_moves_bits(
+        self,
+        current_bits,
+        current_positions,
+        other_bits,
+        board_size
+    ):
+        key = ("all_legal_moves_bits", current_bits, other_bits)
+        cached = self._tactical_cache.get(key)
+        if cached is not None:
+            self._prof_inc("all_legal_moves_cache_hits")
+            return cached
+
+        self._prof_inc("all_legal_moves_cache_misses")
+
+        occ_bits = current_bits | other_bits
+        moves = []
+
+        for from_sq in current_positions:
+            available = self._get_cached_available_moves_bits(occ_bits, from_sq, board_size)
+            for to_sq in available:
+                moves.append((from_sq, to_sq))
+
+        self._tactical_cache[key] = moves
+        return moves
+
+    # ------------------------------------------------------------------
+    # Move generation
+    # ------------------------------------------------------------------
+
+    def _get_cached_available_moves_bits(self, occ_bits, sq, board_size):
+        key = ("moves_bits", occ_bits, sq)
+        cached = self._move_cache.get(key)
+        if cached is not None:
+            self._prof_inc("move_cache_hits")
+            return cached
+
+        self._prof_inc("move_cache_misses")
+        moves = tuple(self._fast_available_moves_bits(occ_bits, sq, board_size))
+        self._move_cache[key] = moves
+        return moves
+
+    def _fast_available_moves_bits(self, occ_bits, sq, board_size):
+        moves = []
+        rays = self._rays_cache[board_size][sq]
+
+        for ray in rays:
+            for target_sq in ray:
+                if occ_bits & (1 << target_sq):
+                    break
+                moves.append(target_sq)
+
+        return moves
+
+    # ------------------------------------------------------------------
+    # Bit helpers
+    # ------------------------------------------------------------------
+
+    def _iter_bits(self, bits):
+        while bits:
+            lsb = bits & -bits
+            yield lsb.bit_length() - 1
+            bits ^= lsb
+
+    def _first_bit(self, bits):
+        if bits == 0:
+            return None
+        return (bits & -bits).bit_length() - 1
+
+    # ------------------------------------------------------------------
+    # Apply / replace / win
+    # ------------------------------------------------------------------
+
+    def _apply_move_bits(self, bits, positions, from_sq, to_sq):
+        new_bits = bits ^ (1 << from_sq) ^ (1 << to_sq)
+        new_positions = self._replace_sq_in_positions(positions, from_sq, to_sq)
+        return new_bits, new_positions
+
+    def _replace_sq_in_positions(self, positions, from_sq, to_sq):
+        lst = list(positions)
+        idx = lst.index(from_sq)
+        lst.pop(idx)
+        bisect.insort(lst, to_sq)
+        return tuple(lst)
+
+    def _is_win_after_move_bits(self, bits, to_sq, board_size):
+        for full_mask, _ in self._get_windows_by_sq(board_size)[to_sq]:
+            if (bits & full_mask) == full_mask:
+                return True
+        return False
+
+    # ------------------------------------------------------------------
+    # Board conversion
+    # ------------------------------------------------------------------
+
+    def _board_to_bitboards(self, board, board_size):
+        white_bits = 0
+        black_bits = 0
+        white_positions = []
+        black_positions = []
+
+        for r in range(board_size):
+            for c in range(board_size):
+                sq = self._rc_to_sq(r, c, board_size)
+                cell = board[r][c]
+                if cell == PieceType.WHITE:
+                    white_bits |= (1 << sq)
+                    white_positions.append(sq)
+                elif cell == PieceType.BLACK:
+                    black_bits |= (1 << sq)
+                    black_positions.append(sq)
+
+        return white_bits, black_bits, tuple(sorted(white_positions)), tuple(sorted(black_positions))
+
+    def _rc_to_sq(self, r, c, board_size):
+        if board_size not in self._rc_to_sq_cache:
+            self._rc_to_sq_cache[board_size] = {
+                (rr, cc): rr * board_size + cc
+                for rr in range(board_size)
+                for cc in range(board_size)
+            }
+        return self._rc_to_sq_cache[board_size][(r, c)]
+
+    def _sq_to_rc(self, sq, board_size):
+        if board_size not in self._sq_to_rc_cache:
+            self._sq_to_rc_cache[board_size] = {
+                rr * board_size + cc: (rr, cc)
+                for rr in range(board_size)
+                for cc in range(board_size)
+            }
+        return self._sq_to_rc_cache[board_size][sq]
+
+    # ------------------------------------------------------------------
+    # Geometry / precompute
+    # ------------------------------------------------------------------
+
+    def _ensure_precomputed(self, board_size):
+        if board_size not in self._rays_cache:
+            self._rays_cache[board_size] = self._build_rays_bits(board_size)
+
+        cache_key = (board_size, WIN_CONDITION)
+        if cache_key not in self._line_cache:
+            self._get_line_windows(board_size)
+
+        if cache_key not in self._windows_by_sq_cache:
+            self._get_windows_by_sq(board_size)
+
+    def _build_rays_bits(self, board_size):
+        directions = [
+            (0, 1), (0, -1), (1, 0), (-1, 0),
+            (-1, 1), (1, -1), (-1, -1), (1, 1),
+        ]
+        rays = {}
+        for r in range(board_size):
+            for c in range(board_size):
+                sq = self._rc_to_sq(r, c, board_size)
+                piece_rays = []
+                for dr, dc in directions:
+                    ray = []
+                    rr, cc = r + dr, c + dc
+                    while 0 <= rr < board_size and 0 <= cc < board_size:
+                        ray.append(self._rc_to_sq(rr, cc, board_size))
+                        rr += dr
+                        cc += dc
+                    piece_rays.append(ray)
+                rays[sq] = piece_rays
+        return rays
+
+    def _get_line_windows(self, board_size):
+        cache_key = (board_size, WIN_CONDITION)
+        if cache_key in self._line_cache:
+            return self._line_cache[cache_key]
+
+        windows = []
+
+        for r in range(board_size):
+            for c in range(board_size - WIN_CONDITION + 1):
+                sqs = tuple(self._rc_to_sq(r, c + i, board_size) for i in range(WIN_CONDITION))
+                mask = 0
+                for sq in sqs:
+                    mask |= (1 << sq)
+                windows.append((mask, sqs))
+
+        for c in range(board_size):
+            for r in range(board_size - WIN_CONDITION + 1):
+                sqs = tuple(self._rc_to_sq(r + i, c, board_size) for i in range(WIN_CONDITION))
+                mask = 0
+                for sq in sqs:
+                    mask |= (1 << sq)
+                windows.append((mask, sqs))
+
+        for r in range(board_size - WIN_CONDITION + 1):
+            for c in range(board_size - WIN_CONDITION + 1):
+                sqs = tuple(self._rc_to_sq(r + i, c + i, board_size) for i in range(WIN_CONDITION))
+                mask = 0
+                for sq in sqs:
+                    mask |= (1 << sq)
+                windows.append((mask, sqs))
+
+        for r in range(board_size - WIN_CONDITION + 1):
+            for c in range(WIN_CONDITION - 1, board_size):
+                sqs = tuple(self._rc_to_sq(r + i, c - i, board_size) for i in range(WIN_CONDITION))
+                mask = 0
+                for sq in sqs:
+                    mask |= (1 << sq)
+                windows.append((mask, sqs))
+
+        self._line_cache[cache_key] = windows
+        return windows
+
+    def _get_windows_by_sq(self, board_size):
+        cache_key = (board_size, WIN_CONDITION)
+        cached = self._windows_by_sq_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        mapping = {sq: [] for sq in range(board_size * board_size)}
+        for full_mask, sqs in self._get_line_windows(board_size):
+            for target_sq in sqs:
+                other_mask = full_mask & ~(1 << target_sq)
+                mapping[target_sq].append((full_mask, other_mask))
+
+        self._windows_by_sq_cache[cache_key] = mapping
+        return mapping

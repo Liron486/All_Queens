@@ -234,6 +234,10 @@ class GameController(QObject):
 
         self._apply_and_update_move(move, player_type, is_undo_move)
 
+        # Force pending paints now
+        self._view.repaint()
+        QApplication.processEvents()
+        
         if not state.is_game_in_progress:
             return
 

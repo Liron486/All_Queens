@@ -1,6 +1,6 @@
 from PyQt5.QtCore import pyqtSignal, QObject
 from models.settings_model import SettingsModel
-from models.player import Player, HumanPlayer, AiPlayerEasy, AiPlayerMedium ,get_available_cells_to_move, check_consecutive_pieces
+from models.player import Player, HumanPlayer, AiPlayerEasy, AiPlayerMedium, AiPlayerHard ,get_available_cells_to_move, check_consecutive_pieces
 from logger import get_logger
 from utils import PieceType, PlayerType, WHITE_PIECE_PATH, BLACK_PIECE_PATH, WIN_CONDITION
 
@@ -482,6 +482,7 @@ class GameState(QObject):
             HumanPlayer(name, player_type, difficulty, piece_type, path) if player_type == PlayerType.HUMAN
             else AiPlayerEasy(name, player_type, difficulty, piece_type, path) if player_type == PlayerType.AI and difficulty == "Easy"
             else AiPlayerMedium(name, player_type, difficulty, piece_type, path) if player_type == PlayerType.AI and difficulty == "Medium"
+            else AiPlayerHard(name, player_type, difficulty, piece_type, path, search_depth=4) if player_type == PlayerType.AI and difficulty == "Hard"
             else Player(name, player_type, difficulty, piece_type, path)
             for idx, (name, player_type, difficulty, piece_type, path) in enumerate(zip(names, player_types, difficulties, piece_types, pic_paths))
         ]

@@ -1,10 +1,11 @@
 from PyQt5.QtCore import pyqtSignal
 from typing import List, Tuple, Optional
 from utils import PieceType, WIN_CONDITION
+from logger import get_logger
+import logging
 import copy
 import random
 import time
-import bisect 
 
 AI_MOVE_WAITING_TIME = 1.5
 
@@ -983,6 +984,8 @@ class AiPlayerHard(Player):
     - double-threat creation detection
     - alpha-beta negamax
     - tactical extension in sharp positions
+    - stronger TT (exact / lower / upper bounds)
+    - better move ordering
     - profiling summary per move
     """
 
@@ -1008,8 +1011,13 @@ class AiPlayerHard(Player):
 
     TACTICAL_EXTENSION_LIMIT = 1
 
+    TT_FLAG_EXACT = 0
+    TT_FLAG_LOWER = 1
+    TT_FLAG_UPPER = 2
+
     def __init__(self, name, player_type, difficulty, piece_type, piece_path, search_depth=4):
         super().__init__(name, player_type, difficulty, piece_type, piece_path)
+        self._logger = get_logger(self.__class__.__name__)
         self._search_depth = search_depth
 
         self._line_cache = {}
@@ -1025,6 +1033,9 @@ class AiPlayerHard(Player):
         self._prof = {}
         self._prof_counts = {}
         self._prof_counters = {}
+
+        self._killer_moves = {}
+        self._history_heuristic = {}
 
     # ------------------------------------------------------------------
     # Profiling helpers
@@ -1050,9 +1061,16 @@ class AiPlayerHard(Player):
         if not self.PROFILE_ENABLED or not self.PROFILE_PRINT_EVERY_MOVE:
             return
 
-        print("\n" + "=" * 72)
-        print(f"[AiPlayerHard] move summary | depth={self._search_depth} | move={chosen_move} | total={total_elapsed:.6f}s")
-        print("-" * 72)
+        if not self._logger.isEnabledFor(logging.DEBUG):
+            return
+
+        lines = []
+        lines.append("=" * 72)
+        lines.append(
+            f"[AiPlayerHard] move summary | depth={self._search_depth} | "
+            f"move={chosen_move} | total={total_elapsed:.6f}s"
+        )
+        lines.append("-" * 72)
 
         rows = []
         for name, total in self._prof.items():
@@ -1062,16 +1080,19 @@ class AiPlayerHard(Player):
 
         rows.sort(reverse=True)
 
-        print(f"{'function':35} {'calls':>10} {'total(s)':>12} {'avg(ms)':>12}")
+        lines.append(f"{'function':35} {'calls':>10} {'total(s)':>12} {'avg(ms)':>12}")
         for total, name, calls, avg in rows:
-            print(f"{name:35} {calls:10d} {total:12.6f} {avg * 1000:12.3f}")
+            lines.append(f"{name:35} {calls:10d} {total:12.6f} {avg * 1000:12.3f}")
 
         if self._prof_counters:
-            print("-" * 72)
-            print("counters:")
+            lines.append("-" * 72)
+            lines.append("counters:")
             for key in sorted(self._prof_counters.keys()):
-                print(f"  {key}: {self._prof_counters[key]}")
-        print("=" * 72)
+                lines.append(f"  {key}: {self._prof_counters[key]}")
+
+        lines.append("=" * 72)
+
+        self._logger.debug("\n%s", "\n".join(lines))
 
     # ------------------------------------------------------------------
     # Main entry
@@ -1084,6 +1105,8 @@ class AiPlayerHard(Player):
         self._move_cache = {}
         self._eval_cache = {}
         self._tactical_cache = {}
+        self._killer_moves = {}
+        self._history_heuristic = {}
 
         self._ensure_precomputed(board_size)
 
@@ -1106,7 +1129,14 @@ class AiPlayerHard(Player):
         self._prof_add("_get_winning_moves_bits", time.perf_counter() - t0)
         if winning_moves:
             best_move_sq = self._order_candidate_moves_bits(
-                winning_moves, my_bits, my_positions, opp_bits, opp_positions, board_size
+                winning_moves,
+                my_bits,
+                my_positions,
+                opp_bits,
+                opp_positions,
+                board_size,
+                tt_move=None,
+                ply=0,
             )[0]
             from_rc = self._sq_to_rc(best_move_sq[0], board_size)
             to_rc = self._sq_to_rc(best_move_sq[1], board_size)
@@ -1126,7 +1156,14 @@ class AiPlayerHard(Player):
         self._prof_add("_get_safe_blocking_moves_bits", time.perf_counter() - t0)
         if safe_blockers:
             best_move_sq = self._order_candidate_moves_bits(
-                safe_blockers, my_bits, my_positions, opp_bits, opp_positions, board_size
+                safe_blockers,
+                my_bits,
+                my_positions,
+                opp_bits,
+                opp_positions,
+                board_size,
+                tt_move=None,
+                ply=0,
             )[0]
             from_rc = self._sq_to_rc(best_move_sq[0], board_size)
             to_rc = self._sq_to_rc(best_move_sq[1], board_size)
@@ -1185,9 +1222,18 @@ class AiPlayerHard(Player):
         best_score = -float("inf")
         best_moves = []
 
+        tt_entry = tt.get((current_bits, other_bits, depth, extensions_left))
+        tt_move = tt_entry["best_move"] if tt_entry and tt_entry.get("best_move") else None
+
         t0 = time.perf_counter()
         moves = self._get_search_moves_bits(
-            current_bits, current_positions, other_bits, other_positions, board_size
+            current_bits,
+            current_positions,
+            other_bits,
+            other_positions,
+            board_size,
+            tt_move=tt_move,
+            ply=0,
         )
         self._prof_add("_get_search_moves_bits", time.perf_counter() - t0)
 
@@ -1285,11 +1331,23 @@ class AiPlayerHard(Player):
             self._prof_inc("repetition_draws")
             return self.DRAW_SCORE
 
+        orig_alpha = alpha
         tt_entry = tt.get(state_key)
         if tt_entry is not None:
             self._prof_inc("tt_hits")
-            return tt_entry
-        self._prof_inc("tt_misses")
+            if tt_entry["depth"] >= depth:
+                flag = tt_entry["flag"]
+                score = tt_entry["score"]
+                if flag == self.TT_FLAG_EXACT:
+                    return score
+                elif flag == self.TT_FLAG_LOWER:
+                    alpha = max(alpha, score)
+                elif flag == self.TT_FLAG_UPPER:
+                    beta = min(beta, score)
+                if alpha >= beta:
+                    return score
+        else:
+            self._prof_inc("tt_misses")
 
         if depth == 0:
             if extensions_left > 0 and self._is_sharp_position_bits(
@@ -1303,16 +1361,31 @@ class AiPlayerHard(Player):
                     current_bits, current_positions, other_bits, other_positions, board_size
                 )
                 self._prof_add("_evaluate_position_bits", time.perf_counter() - t0)
-                tt[state_key] = score
+
+                tt[state_key] = {
+                    "depth": depth,
+                    "score": score,
+                    "flag": self.TT_FLAG_EXACT,
+                    "best_move": None,
+                }
                 return score
+
+        tt_move = tt_entry["best_move"] if tt_entry and tt_entry.get("best_move") else None
 
         t0 = time.perf_counter()
         moves = self._get_search_moves_bits(
-            current_bits, current_positions, other_bits, other_positions, board_size
+            current_bits,
+            current_positions,
+            other_bits,
+            other_positions,
+            board_size,
+            tt_move=tt_move,
+            ply=ply,
         )
         self._prof_add("_get_search_moves_bits", time.perf_counter() - t0)
 
         best_score = -float("inf")
+        best_move = None
         path_keys.add(state_key)
 
         for from_sq, to_sq in moves:
@@ -1337,16 +1410,32 @@ class AiPlayerHard(Player):
 
             if score > best_score:
                 best_score = score
+                best_move = (from_sq, to_sq)
 
             if best_score > alpha:
                 alpha = best_score
 
             if alpha >= beta:
                 self._prof_inc("alpha_beta_cutoffs")
+                self._register_killer_move(ply, (from_sq, to_sq))
+                self._register_history_move((from_sq, to_sq), depth)
                 break
 
         path_keys.remove(state_key)
-        tt[state_key] = best_score
+
+        flag = self.TT_FLAG_EXACT
+        if best_score <= orig_alpha:
+            flag = self.TT_FLAG_UPPER
+        elif best_score >= beta:
+            flag = self.TT_FLAG_LOWER
+
+        tt[state_key] = {
+            "depth": depth,
+            "score": best_score,
+            "flag": flag,
+            "best_move": best_move,
+        }
+
         return best_score
 
     # ------------------------------------------------------------------
@@ -1359,14 +1448,23 @@ class AiPlayerHard(Player):
         current_positions,
         other_bits,
         other_positions,
-        board_size
+        board_size,
+        tt_move=None,
+        ply=0,
     ):
         winning_moves = self._get_winning_moves_bits(
             current_bits, current_positions, other_bits, board_size
         )
         if winning_moves:
             return self._order_candidate_moves_bits(
-                winning_moves, current_bits, current_positions, other_bits, other_positions, board_size
+                winning_moves,
+                current_bits,
+                current_positions,
+                other_bits,
+                other_positions,
+                board_size,
+                tt_move=tt_move,
+                ply=ply,
             )
 
         safe_blockers = self._get_safe_blocking_moves_bits(
@@ -1374,7 +1472,14 @@ class AiPlayerHard(Player):
         )
         if safe_blockers:
             return self._order_candidate_moves_bits(
-                safe_blockers, current_bits, current_positions, other_bits, other_positions, board_size
+                safe_blockers,
+                current_bits,
+                current_positions,
+                other_bits,
+                other_positions,
+                board_size,
+                tt_move=tt_move,
+                ply=ply,
             )
 
         double_threat_moves = self._get_double_threat_moves_bits(
@@ -1382,11 +1487,24 @@ class AiPlayerHard(Player):
         )
         if double_threat_moves:
             return self._order_candidate_moves_bits(
-                double_threat_moves, current_bits, current_positions, other_bits, other_positions, board_size
+                double_threat_moves,
+                current_bits,
+                current_positions,
+                other_bits,
+                other_positions,
+                board_size,
+                tt_move=tt_move,
+                ply=ply,
             )
 
         return self._generate_ordered_moves_bits(
-            current_bits, current_positions, other_bits, other_positions, board_size
+            current_bits,
+            current_positions,
+            other_bits,
+            other_positions,
+            board_size,
+            tt_move=tt_move,
+            ply=ply,
         )
 
     def _generate_ordered_moves_bits(
@@ -1395,13 +1513,22 @@ class AiPlayerHard(Player):
         current_positions,
         other_bits,
         other_positions,
-        board_size
+        board_size,
+        tt_move=None,
+        ply=0,
     ):
         all_legal = self._get_all_legal_moves_bits(
             current_bits, current_positions, other_bits, board_size
         )
         return self._order_candidate_moves_bits(
-            all_legal, current_bits, current_positions, other_bits, other_positions, board_size
+            all_legal,
+            current_bits,
+            current_positions,
+            other_bits,
+            other_positions,
+            board_size,
+            tt_move=tt_move,
+            ply=ply,
         )
 
     def _order_candidate_moves_bits(
@@ -1411,21 +1538,32 @@ class AiPlayerHard(Player):
         current_positions,
         other_bits,
         other_positions,
-        board_size
+        board_size,
+        tt_move=None,
+        ply=0,
     ):
         if not candidate_moves:
             return []
 
-        occ_bits = current_bits | other_bits
         opp_targets_mask = self._get_immediate_win_targets_bits(
             other_bits, other_positions, current_bits, board_size
         )
         center = (board_size - 1) / 2.0
+        killers = self._killer_moves.get(ply, [])
 
         scored = []
 
         for from_sq, to_sq in candidate_moves:
             score = 0
+            move = (from_sq, to_sq)
+
+            if tt_move is not None and move == tt_move:
+                score += 5_000_000
+
+            if move in killers:
+                score += 700_000
+
+            score += self._history_heuristic.get(move, 0)
 
             new_current_bits, new_current_positions = self._apply_move_bits(
                 current_bits, current_positions, from_sq, to_sq
@@ -1455,6 +1593,17 @@ class AiPlayerHard(Player):
 
         scored.sort(reverse=True, key=lambda x: x[0])
         return [(from_sq, to_sq) for score, from_sq, to_sq in scored]
+
+    def _register_killer_move(self, ply, move):
+        killers = self._killer_moves.setdefault(ply, [])
+        if move in killers:
+            killers.remove(move)
+        killers.insert(0, move)
+        if len(killers) > 2:
+            killers.pop()
+
+    def _register_history_move(self, move, depth):
+        self._history_heuristic[move] = self._history_heuristic.get(move, 0) + depth * depth
 
     # ------------------------------------------------------------------
     # Evaluation
@@ -1497,16 +1646,15 @@ class AiPlayerHard(Player):
         if opp_distinct >= 2:
             score -= self.DOUBLE_THREAT_BONUS
 
-        my_double_threat_moves = self._get_double_threat_moves_bits(
+        # Boolean versions are cheaper than building full lists here
+        if self._has_double_threat_move_bits(
             current_bits, current_positions, other_bits, board_size
-        )
-        opp_double_threat_moves = self._get_double_threat_moves_bits(
-            other_bits, other_positions, current_bits, board_size
-        )
-
-        if my_double_threat_moves:
+        ):
             score += self.DOUBLE_THREAT_BONUS // 2
-        if opp_double_threat_moves:
+
+        if self._has_double_threat_move_bits(
+            other_bits, other_positions, current_bits, board_size
+        ):
             score -= self.DOUBLE_THREAT_BONUS // 2
 
         if self._opponent_has_forced_threat_next_turn_bits(
@@ -1659,13 +1807,28 @@ class AiPlayerHard(Player):
             self._tactical_cache[key] = []
             return []
 
-        safe_moves = []
-        all_legal = self._get_all_legal_moves_bits(my_bits, my_positions, opp_bits, board_size)
+        # Keep the same logic idea: only accept moves that remove all opponent immediate wins.
+        # But first try likely candidates: moves into the opponent winning targets.
+        candidate_moves = []
+        seen = set()
 
-        for from_sq, to_sq in all_legal:
-            new_my_bits, new_my_positions = self._apply_move_bits(
-                my_bits, my_positions, from_sq, to_sq
-            )
+        for target_sq in self._iter_bits(opp_targets_mask):
+            for from_sq, to_sq in self._get_moves_to_target_bits(my_bits, my_positions, opp_bits, target_sq, board_size):
+                move = (from_sq, to_sq)
+                if move not in seen:
+                    seen.add(move)
+                    candidate_moves.append(move)
+
+        # Fallback to all legal if needed to preserve logic breadth
+        all_legal = self._get_all_legal_moves_bits(my_bits, my_positions, opp_bits, board_size)
+        for move in all_legal:
+            if move not in seen:
+                seen.add(move)
+                candidate_moves.append(move)
+
+        safe_moves = []
+        for from_sq, to_sq in candidate_moves:
+            new_my_bits, _ = self._apply_move_bits(my_bits, my_positions, from_sq, to_sq)
 
             opp_targets_after = self._get_immediate_win_targets_bits(
                 opp_bits, opp_positions, new_my_bits, board_size
@@ -1716,6 +1879,45 @@ class AiPlayerHard(Player):
         self._tactical_cache[key] = moves
         return moves
 
+    def _has_double_threat_move_bits(
+        self,
+        current_bits,
+        current_positions,
+        other_bits,
+        board_size
+    ):
+        key = ("has_double_threat_bits", current_bits, other_bits)
+        cached = self._tactical_cache.get(key)
+        if cached is not None:
+            self._prof_inc("has_double_threat_cache_hits")
+            return cached
+
+        self._prof_inc("has_double_threat_cache_misses")
+
+        all_legal = self._get_all_legal_moves_bits(
+            current_bits, current_positions, other_bits, board_size
+        )
+
+        for from_sq, to_sq in all_legal:
+            new_current_bits, new_current_positions = self._apply_move_bits(
+                current_bits, current_positions, from_sq, to_sq
+            )
+
+            if self._is_win_after_move_bits(new_current_bits, to_sq, board_size):
+                self._tactical_cache[key] = True
+                return True
+
+            targets_after = self._get_immediate_win_targets_bits(
+                new_current_bits, new_current_positions, other_bits, board_size
+            )
+
+            if targets_after.bit_count() >= 2:
+                self._tactical_cache[key] = True
+                return True
+
+        self._tactical_cache[key] = False
+        return False
+
     def _opponent_has_forced_threat_next_turn_bits(
         self,
         current_bits,
@@ -1747,12 +1949,23 @@ class AiPlayerHard(Player):
         other_positions,
         board_size
     ):
-        if self._get_winning_moves_bits(current_bits, current_positions, other_bits, board_size):
+        if self._has_winning_move_bits(current_bits, current_positions, other_bits, board_size):
             return True
 
-        return bool(
-            self._get_double_threat_moves_bits(current_bits, current_positions, other_bits, board_size)
+        return self._has_double_threat_move_bits(
+            current_bits, current_positions, other_bits, board_size
         )
+
+    def _has_winning_move_bits(
+        self,
+        current_bits,
+        current_positions,
+        other_bits,
+        board_size
+    ):
+        return self._get_immediate_win_targets_bits(
+            current_bits, current_positions, other_bits, board_size
+        ) != 0
 
     def _has_open_three_window_bits(self, current_bits, other_bits, board_size):
         line_windows = self._get_line_windows(board_size)
@@ -1787,52 +2000,71 @@ class AiPlayerHard(Player):
 
         self._prof_inc("win_targets_cache_misses")
 
-        target_to_movers = self._get_target_to_movers_bits(
-            current_bits, current_positions, other_bits, board_size
-        )
-        windows_by_sq = self._get_windows_by_sq(board_size)
-
+        occ_bits = current_bits | other_bits
         result_mask = 0
 
-        for target_sq, movers_mask in target_to_movers.items():
-            for _, other_mask in windows_by_sq[target_sq]:
-                if (current_bits & other_mask) != other_mask:
-                    continue
+        for full_mask, sqs in self._get_line_windows(board_size):
+            # Blocked by opponent
+            if full_mask & other_bits:
+                continue
 
-                if movers_mask & ~other_mask:
-                    result_mask |= (1 << target_sq)
-                    break
+            my_count = (full_mask & current_bits).bit_count()
+            if my_count != WIN_CONDITION - 1:
+                continue
+
+            empty_mask = full_mask & ~occ_bits
+            if empty_mask == 0:
+                continue
+
+            target_sq = self._first_bit(empty_mask)
+            if target_sq is None:
+                continue
+
+            other_mask = full_mask & ~(1 << target_sq)
+            movers_mask = self._get_movers_to_target_bits(
+                current_bits, other_bits, target_sq, board_size
+            )
+
+            # Need a mover that is not already one of the 3 occupied squares in the line.
+            if movers_mask & ~other_mask:
+                result_mask |= (1 << target_sq)
 
         self._tactical_cache[key] = result_mask
         return result_mask
 
-    def _get_target_to_movers_bits(
+    def _get_movers_to_target_bits(
         self,
         current_bits,
-        current_positions,
         other_bits,
+        target_sq,
         board_size
     ):
-        key = ("target_to_movers", current_bits, other_bits)
+        key = ("movers_to_target_bits", current_bits, other_bits, target_sq)
         cached = self._tactical_cache.get(key)
         if cached is not None:
-            self._prof_inc("target_to_movers_cache_hits")
+            self._prof_inc("movers_to_target_cache_hits")
             return cached
 
-        self._prof_inc("target_to_movers_cache_misses")
+        self._prof_inc("movers_to_target_cache_misses")
 
         occ_bits = current_bits | other_bits
-        target_to_movers = {}
+        if occ_bits & (1 << target_sq):
+            self._tactical_cache[key] = 0
+            return 0
 
-        for from_sq in current_positions:
-            from_mask = 1 << from_sq
-            moves = self._get_cached_available_moves_bits(occ_bits, from_sq, board_size)
+        movers = 0
+        rays = self._rays_cache[board_size][target_sq]
 
-            for target_sq in moves:
-                target_to_movers[target_sq] = target_to_movers.get(target_sq, 0) | from_mask
+        for ray in rays:
+            for sq in ray:
+                bit = 1 << sq
+                if occ_bits & bit:
+                    if current_bits & bit:
+                        movers |= bit
+                    break
 
-        self._tactical_cache[key] = target_to_movers
-        return target_to_movers
+        self._tactical_cache[key] = movers
+        return movers
 
     def _get_reachable_targets_mask_bits(
         self,
@@ -1849,13 +2081,14 @@ class AiPlayerHard(Player):
 
         self._prof_inc("reachmask_cache_misses")
 
-        target_to_movers = self._get_target_to_movers_bits(
-            current_bits, current_positions, other_bits, board_size
-        )
-
+        occ_bits = current_bits | other_bits
         mask = 0
-        for target_sq in target_to_movers.keys():
-            mask |= (1 << target_sq)
+
+        # This keeps the same meaning as before: all currently reachable empty targets.
+        for from_sq in current_positions:
+            moves = self._get_cached_available_moves_bits(occ_bits, from_sq, board_size)
+            for target_sq in moves:
+                mask |= (1 << target_sq)
 
         self._tactical_cache[key] = mask
         return mask
@@ -1868,10 +2101,9 @@ class AiPlayerHard(Player):
         target_sq,
         board_size
     ):
-        target_to_movers = self._get_target_to_movers_bits(
-            current_bits, current_positions, other_bits, board_size
+        movers_mask = self._get_movers_to_target_bits(
+            current_bits, other_bits, target_sq, board_size
         )
-        movers_mask = target_to_movers.get(target_sq, 0)
         return [(from_sq, target_sq) for from_sq in self._iter_bits(movers_mask)]
 
     # ------------------------------------------------------------------
@@ -1957,11 +2189,8 @@ class AiPlayerHard(Player):
         return new_bits, new_positions
 
     def _replace_sq_in_positions(self, positions, from_sq, to_sq):
-        lst = list(positions)
-        idx = lst.index(from_sq)
-        lst.pop(idx)
-        bisect.insort(lst, to_sq)
-        return tuple(lst)
+        # Keep normalized tuple order for caching consistency.
+        return tuple(sorted(to_sq if sq == from_sq else sq for sq in positions))
 
     def _is_win_after_move_bits(self, bits, to_sq, board_size):
         for full_mask, _ in self._get_windows_by_sq(board_size)[to_sq]:

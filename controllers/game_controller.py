@@ -51,8 +51,9 @@ class GameController(QObject):
             route_to_reset = state.route_of_last_move.copy()
             state.start_new_game()
             self._view.start_new_game(state.board, state.players, route_to_reset, state.game_number)
-            self._get_move_from_player()
-
+            # Let the reset board paint first
+            QTimer.singleShot(0, self._get_move_from_player)
+            
     def back_to_settings(self):
         self._abort_game = True
         self.back_to_settings_singal.emit()
@@ -184,8 +185,18 @@ class GameController(QObject):
             self._view.player_click_signal.connect(self._handle_move_from_player)
             self._signal_connected = True
         else:
-            move = self._game_state.get_ai_move()
-            self.execute_move(move, player_type)
+            # Let Qt paint the starting board first, then calculate AI move
+            QTimer.singleShot(0, self._start_ai_turn)
+
+    def _start_ai_turn(self):
+        state = self._game_state
+
+        # Safety checks in case user paused / went back / game changed meanwhile
+        if self._abort_game or not state.is_game_in_progress or state.current_player_type is not PlayerType.AI:
+            return
+
+        move = state.get_ai_move()
+        self.execute_move(move, state.current_player_type)
 
     def _handle_release_on_cell(self, row, col):
         state = self._game_state
